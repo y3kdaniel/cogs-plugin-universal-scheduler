@@ -1,0 +1,4 @@
+node_modules/
+schedules.json
+.DS_Store
+Thumbs.db
