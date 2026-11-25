@@ -16,6 +16,7 @@ const INLINE_MANIFEST = {
   name: "Universal Scheduler",
   version: "3.2.0",
   minCogsVersion: "4.10.0",
+  showVariables: { read: true, write: true },
   config: [
     {
       name: "openScheduleEditor",
@@ -25,20 +26,8 @@ const INLINE_MANIFEST = {
   state: [
     { name: "activeSchedules", value: { type: "string", default: "" } },
     { name: "activeCount", value: { type: "number", default: 0, min: 0, integer: true } },
-    {
-      "name": "targetVariable",
-      "value": {
-        "type": "string",
-        "default": ""
-      }
-    },
-    {
-      "name": "targetValue",
-      "value": {
-        "type": "string",
-        "default": ""
-      }
-    },
+    { name: "targetVariable", value: { type: "string", default: "" } },
+    { name: "targetValue", value: { type: "string", default: "" } },
     { name: "timeHHMM", value: { type: "number", default: 0, min: 0, max: 2359, integer: true } },
     { name: "minutesSinceMidnight", value: { type: "number", default: 0, min: 0, max: 1439, integer: true } },
     {
@@ -212,6 +201,11 @@ function applyShowVariable(varName, rawValue) {
     const typedValue = coerceValueForVariable(varName, rawValue);
     if (typeof AppState.cogs.setShowVariable === "function") {
       AppState.cogs.setShowVariable(varName, typedValue);
+      const tel = document.getElementById("telemetry");
+      if (tel) {
+        tel.style.color = "#4ade80";
+        tel.textContent = "Updated Show Variable -> " + varName + " = " + typedValue;
+      }
     }
   } catch (err) {
     const tel = document.getElementById("telemetry");
@@ -236,7 +230,7 @@ function sendCogsState(payload) {
     } else if (typeof AppState.cogs.sendState === "function") {
       AppState.cogs.sendState(payload);
     }
-    if (tel) {
+    if (tel && tel.style.color !== "rgb(74, 222, 128)") {
       tel.style.color = "#60a5fa";
       tel.textContent = "Sent setState -> dateISO=" + payload.dateISO + " | " + payload.dayOfWeek + " | timeHHMM=" + payload.timeHHMM + " | activeCount=" + payload.activeCount;
     }
@@ -277,7 +271,7 @@ function tick() {
   const activeNames = currentActiveRules.map(function (r) { return r.name.trim(); }).filter(Boolean);
   const activeFormatted = activeNames.map(function (n) { return "|" + n + "|"; }).join("");
 
-  sendCogsState({
+  const statePayload = {
     activeSchedules: activeFormatted,
     activeCount: currentActiveRules.length,
     timeHHMM: hours * 100 + minutes,
@@ -287,7 +281,7 @@ function tick() {
     month: month,
     dayOfMonth: dayOfMonth,
     dateISO: dateISO
-  });
+  };
 
   const minuteKey = dateISO + " " + timeStr;
   if (minuteKey !== AppState.lastMinuteKey) {
@@ -304,21 +298,27 @@ function tick() {
     AppState.activeIds = nextIds;
     for (const rule of currentActiveRules) {
       if (rule.autoRecover) {
-        if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
-        applyShowVariable(rule.targetVariable, rule.activeValue);
-      }
-    }
-    if (typeof updateStatusBar === "function") updateStatusBar();
-    if (uiChanged && typeof render === "function") render();
-    return;
-  }
-  
+if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
+if (rule.targetVariable && rule.activeValue !== "") {
+statePayload.targetVariable = rule.targetVariable;
+statePayload.targetValue = rule.activeValue;
+applyShowVariable(rule.targetVariable, rule.activeValue);
+}
+}
+}
+sendCogsState(statePayload);
+if (typeof updateStatusBar === "function") updateStatusBar();
+if (uiChanged && typeof render === "function") render();
+return;
+}
 for (const rule of AppState.store.schedules) {
 const wasActive = AppState.activeIds.has(rule.id);
 const isNowActive = nextIds.has(rule.id);
 if (wasActive && !isNowActive) {
 if (rule.name) sendCogsEvent("scheduleEnded", rule.name.trim());
-if (rule.hasEndTime && rule.restoreOnEnd) {
+if (rule.hasEndTime && rule.restoreOnEnd && rule.targetVariable && rule.inactiveValue !== "") {
+statePayload.targetVariable = rule.targetVariable;
+statePayload.targetValue = rule.inactiveValue;
 applyShowVariable(rule.targetVariable, rule.inactiveValue);
 }
 }
@@ -328,9 +328,14 @@ const wasActive = AppState.activeIds.has(rule.id);
 const isNowActive = nextIds.has(rule.id);
 if (!wasActive && isNowActive) {
 if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
+if (rule.targetVariable && rule.activeValue !== "") {
+statePayload.targetVariable = rule.targetVariable;
+statePayload.targetValue = rule.activeValue;
 applyShowVariable(rule.targetVariable, rule.activeValue);
 }
 }
+}
+sendCogsState(statePayload);
 AppState.activeIds = nextIds;
 if (uiChanged) {
 if (typeof updateStatusBar === "function") updateStatusBar();
