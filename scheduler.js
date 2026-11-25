@@ -16,7 +16,6 @@ const INLINE_MANIFEST = {
   name: "Universal Scheduler",
   version: "3.2.0",
   minCogsVersion: "4.10.0",
-  showVariables: { read: true, write: true },
   config: [
     {
       name: "openScheduleEditor",
@@ -26,8 +25,6 @@ const INLINE_MANIFEST = {
   state: [
     { name: "activeSchedules", value: { type: "string", default: "" } },
     { name: "activeCount", value: { type: "number", default: 0, min: 0, integer: true } },
-    { name: "targetVariable", value: { type: "string", default: "" } },
-    { name: "targetValue", value: { type: "string", default: "" } },
     { name: "timeHHMM", value: { type: "number", default: 0, min: 0, max: 2359, integer: true } },
     { name: "minutesSinceMidnight", value: { type: "number", default: 0, min: 0, max: 1439, integer: true } },
     {
@@ -59,7 +56,6 @@ window.AppState = {
   hasInitialized: false,
   lastMinuteKey: "",
   openBulkHelper: {},
-  showVariables: {},
   store: null
 };
 
@@ -77,11 +73,7 @@ const DEFAULT_STORE = {
       daysOfWeek: [],
       startTime: "17:00",
       hasEndTime: true,
-      endTime: "23:00",
-      targetVariable: "",
-      activeValue: "",
-      restoreOnEnd: true,
-      inactiveValue: ""
+      endTime: "23:00"
     }
   ]
 };
@@ -98,11 +90,7 @@ function normalizeSchedule(s) {
     daysOfWeek: Array.isArray(s.daysOfWeek) ? s.daysOfWeek : [],
     startTime: s.startTime || "17:00",
     hasEndTime: s.hasEndTime !== false,
-    endTime: s.endTime || "23:00",
-    targetVariable: s.targetVariable || "",
-    activeValue: s.activeValue !== undefined ? String(s.activeValue) : "",
-    restoreOnEnd: s.restoreOnEnd !== false,
-    inactiveValue: s.inactiveValue !== undefined ? String(s.inactiveValue) : ""
+    endTime: s.endTime || "23:00"
   };
 }
 
@@ -181,41 +169,6 @@ function isRuleActiveNow(rule, dateISO, dayName, nowMinutes) {
   return false;
 }
 
-function coerceValueForVariable(varName, rawValue) {
-  const varDef = AppState.showVariables[varName];
-  if (!varDef) return rawValue;
-  if (varDef.type === "boolean") {
-    return rawValue === true || String(rawValue).toLowerCase() === "true";
-  }
-  if (varDef.type === "number") {
-    const num = Number(rawValue);
-    return Number.isNaN(num) ? 0 : num;
-  }
-  return String(rawValue);
-}
-
-function applyShowVariable(varName, rawValue) {
-  if (!varName || rawValue === undefined || rawValue === "") return;
-  if (!AppState.cogs || !AppState.isConnected) return;
-  try {
-    const typedValue = coerceValueForVariable(varName, rawValue);
-    if (typeof AppState.cogs.setShowVariable === "function") {
-      AppState.cogs.setShowVariable(varName, typedValue);
-      const tel = document.getElementById("telemetry");
-      if (tel) {
-        tel.style.color = "#4ade80";
-        tel.textContent = "Updated Show Variable -> " + varName + " = " + typedValue;
-      }
-    }
-  } catch (err) {
-    const tel = document.getElementById("telemetry");
-    if (tel) {
-      tel.style.color = "#f87171";
-      tel.textContent = "setShowVariable(" + varName + ") error: " + err.message;
-    }
-  }
-}
-
 function sendCogsState(payload) {
   const tel = document.getElementById("telemetry");
   if (!AppState.cogs || !AppState.isConnected) {
@@ -230,9 +183,9 @@ function sendCogsState(payload) {
     } else if (typeof AppState.cogs.sendState === "function") {
       AppState.cogs.sendState(payload);
     }
-    if (tel && tel.style.color !== "rgb(74, 222, 128)") {
+    if (tel) {
       tel.style.color = "#60a5fa";
-      tel.textContent = "Sent setState -> dateISO=" + payload.dateISO + " | " + payload.dayOfWeek + " | timeHHMM=" + payload.timeHHMM + " | activeCount=" + payload.activeCount;
+      tel.textContent = "Connected -> " + payload.dateISO + " | " + payload.dayOfWeek + " | timeHHMM=" + payload.timeHHMM + " | activeCount=" + payload.activeCount;
     }
   } catch (err) {
     if (tel) {
@@ -271,7 +224,7 @@ function tick() {
   const activeNames = currentActiveRules.map(function (r) { return r.name.trim(); }).filter(Boolean);
   const activeFormatted = activeNames.map(function (n) { return "|" + n + "|"; }).join("");
 
-  const statePayload = {
+  sendCogsState({
     activeSchedules: activeFormatted,
     activeCount: currentActiveRules.length,
     timeHHMM: hours * 100 + minutes,
@@ -281,7 +234,7 @@ function tick() {
     month: month,
     dayOfMonth: dayOfMonth,
     dateISO: dateISO
-  };
+  });
 
   const minuteKey = dateISO + " " + timeStr;
   if (minuteKey !== AppState.lastMinuteKey) {
@@ -297,95 +250,69 @@ function tick() {
     AppState.hasInitialized = true;
     AppState.activeIds = nextIds;
     for (const rule of currentActiveRules) {
-      if (rule.autoRecover) {
-if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
-if (rule.targetVariable && rule.activeValue !== "") {
-statePayload.targetVariable = rule.targetVariable;
-statePayload.targetValue = rule.activeValue;
-applyShowVariable(rule.targetVariable, rule.activeValue);
+      if (rule.autoRecover && rule.name) {
+        sendCogsEvent("scheduleStarted", rule.name.trim());
+      }
+    }
+    if (typeof updateStatusBar === "function") updateStatusBar();
+    if (uiChanged && typeof render === "function") render();
+    return;
+  }
+
+  for (const rule of AppState.store.schedules) {
+    const wasActive = AppState.activeIds.has(rule.id);
+    const isNowActive = nextIds.has(rule.id);
+    if (wasActive && !isNowActive && rule.name) {
+      sendCogsEvent("scheduleEnded", rule.name.trim());
+    }
+  }
+
+  for (const rule of AppState.store.schedules) {
+    const wasActive = AppState.activeIds.has(rule.id);
+    const isNowActive = nextIds.has(rule.id);
+    if (!wasActive && isNowActive && rule.name) {
+      sendCogsEvent("scheduleStarted", rule.name.trim());
+    }
+  }
+
+  AppState.activeIds = nextIds;
+  if (uiChanged) {
+    if (typeof updateStatusBar === "function") updateStatusBar();
+    if (typeof render === "function") render();
+  }
 }
-}
-}
-sendCogsState(statePayload);
-if (typeof updateStatusBar === "function") updateStatusBar();
-if (uiChanged && typeof render === "function") render();
-return;
-}
-for (const rule of AppState.store.schedules) {
-const wasActive = AppState.activeIds.has(rule.id);
-const isNowActive = nextIds.has(rule.id);
-if (wasActive && !isNowActive) {
-if (rule.name) sendCogsEvent("scheduleEnded", rule.name.trim());
-if (rule.hasEndTime && rule.restoreOnEnd && rule.targetVariable && rule.inactiveValue !== "") {
-statePayload.targetVariable = rule.targetVariable;
-statePayload.targetValue = rule.inactiveValue;
-applyShowVariable(rule.targetVariable, rule.inactiveValue);
-}
-}
-}
-for (const rule of AppState.store.schedules) {
-const wasActive = AppState.activeIds.has(rule.id);
-const isNowActive = nextIds.has(rule.id);
-if (!wasActive && isNowActive) {
-if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
-if (rule.targetVariable && rule.activeValue !== "") {
-statePayload.targetVariable = rule.targetVariable;
-statePayload.targetValue = rule.activeValue;
-applyShowVariable(rule.targetVariable, rule.activeValue);
-}
-}
-}
-sendCogsState(statePayload);
-AppState.activeIds = nextIds;
-if (uiChanged) {
-if (typeof updateStatusBar === "function") updateStatusBar();
-if (typeof render === "function") render();
-}
-}
+
 function initCogs() {
-const tel = document.getElementById("telemetry");
-if (typeof window.COGS === "undefined") {
-document.getElementById("conn-pill").textContent = "Standalone (cogs-client.js missing)";
-if (tel) tel.textContent = "Error: window.COGS is undefined - check cogs-client.js";
-return;
-}
-try {
-const CogsConnection = window.COGS.CogsConnection;
-const conn = new CogsConnection(INLINE_MANIFEST);
-AppState.cogs = conn;
-conn.addEventListener("open", function () {
-AppState.isConnected = true;
-AppState.hasInitialized = false;
-if (conn.showVariables) {
-AppState.showVariables = conn.showVariables;
-}
-const pill = document.getElementById("conn-pill");
-pill.textContent = "Connected to COGS";
-pill.classList.add("ok");
-tick();
-if (typeof render === "function") render();
-});
-conn.addEventListener("showVariables", function () {
-if (conn.showVariables) {
-AppState.showVariables = conn.showVariables;
-}
-for (const rule of AppState.store.schedules) {
-if (AppState.activeIds.has(rule.id) && rule.autoRecover) {
-applyShowVariable(rule.targetVariable, rule.activeValue);
-}
-}
-if (typeof render === "function") render();
-});
-conn.addEventListener("close", function () {
-AppState.isConnected = false;
-const pill = document.getElementById("conn-pill");
-pill.textContent = "Disconnected";
-pill.classList.remove("ok");
-});
-} catch (err) {
-if (tel) {
-tel.style.color = "#f87171";
-tel.textContent = "CogsConnection init error: " + err.message;
-}
-}
+  const tel = document.getElementById("telemetry");
+  if (typeof window.COGS === "undefined") {
+    document.getElementById("conn-pill").textContent = "Standalone (cogs-client.js missing)";
+    if (tel) tel.textContent = "Error: window.COGS is undefined - check cogs-client.js";
+    return;
+  }
+  try {
+    const CogsConnection = window.COGS.CogsConnection;
+    const conn = new CogsConnection(INLINE_MANIFEST);
+    AppState.cogs = conn;
+
+    conn.addEventListener("open", function () {
+      AppState.isConnected = true;
+      AppState.hasInitialized = false;
+      const pill = document.getElementById("conn-pill");
+      pill.textContent = "Connected to COGS";
+      pill.classList.add("ok");
+      tick();
+    });
+
+    conn.addEventListener("close", function () {
+      AppState.isConnected = false;
+      const pill = document.getElementById("conn-pill");
+      pill.textContent = "Disconnected";
+      pill.classList.remove("ok");
+    });
+  } catch (err) {
+    if (tel) {
+      tel.style.color = "#f87171";
+      tel.textContent = "CogsConnection init error: " + err.message;
+    }
+  }
 }
