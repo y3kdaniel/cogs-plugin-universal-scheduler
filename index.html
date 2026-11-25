@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Universal Scheduler</title>
+  <script src="./cogs-client.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #181a1f;
+      color: #e6e8ec;
+      margin: 0;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 18px; }
+    .ver-pill {
+      background: #2d3139;
+      color: #9ca3af;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .conn-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #374151;
+      color: #d1d5db;
+    }
+    .conn-pill.ok { background: #14532d; color: #86efac; }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #2563eb; }
+    button.secondary { background: #2d3139; }
+    button.secondary:hover { background: #3b404b; }
+    button.warn { background: #d97706; color: #fff; }
+    button.warn:hover { background: #b45309; }
+    button.danger { background: #dc2626; padding: 6px 10px; }
+    button.ghost {
+      background: transparent;
+      color: #9ca3af;
+      border: 1px solid #383d4a;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+    button.ghost:hover { color: #fff; border-color: #6b7280; }
+    .global-bar {
+      background: #22252c;
+      border: 1px solid #30343f;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .card {
+      background: #22252c;
+      border: 1px solid #30343f;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .card.active-now { border-color: #22c55e; }
+    .card.forced { border-color: #f59e0b; }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .sub-panel {
+      background: #1a1d23;
+      border: 1px solid #2d3139;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 8px;
+    }
+    label.lbl { font-size: 12px; color: #9ca3af; display: inline-flex; align-items: center; gap: 5px; }
+    input[type="text"], input[type="time"], input[type="date"], select {
+      background: #14161a;
+      color: #fff;
+      border: 1px solid #383d4a;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+    .badge {
+      background: #22c55e;
+      color: #052e16;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .badge.warn { background: #f59e0b; color: #451a03; }
+    .override-group {
+      display: inline-flex;
+      background: #14161a;
+      border: 1px solid #383d4a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .override-btn {
+      background: transparent;
+      color: #9ca3af;
+      border-radius: 0;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+    .override-btn.sel-auto { background: #3b82f6; color: #fff; }
+    .override-btn.sel-on { background: #f59e0b; color: #000; }
+    .override-btn.sel-off { background: #ef4444; color: #fff; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip {
+      background: #2d3139;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip span { cursor: pointer; color: #f87171; font-weight: bold; }
+    .day-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #2d3139;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .status-bar { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    .update-msg { font-size: 12px; color: #9ca3af; }
+    .update-msg a { color: #60a5fa; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="title-row">
+        <h2>Show Schedules</h2>
+        <span class="ver-pill">v3.2.0</span>
+        <span class="conn-pill" id="conn-pill">Standalone</span>
+        <button class="ghost" style="padding:2px 8px; font-size:11px;" id="btn-updates">Check for Updates</button>
+        <span class="update-msg" id="update-status"></span>
+      </div>
+      <div class="status-bar" id="status">Loading schedules...</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button class="warn" id="reset-overrides-btn" style="display:none;">Reset All Overrides to Auto</button>
+      <button class="ghost" id="btn-export">Export JSON</button>
+      <button class="ghost" id="btn-import">Import JSON</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none;" />
+      <button class="secondary" id="btn-add">+ Add Schedule</button>
+      <button id="btn-save">Save Changes</button>
+    </div>
+  </div>
+
+  <div class="global-bar">
+    <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+      <input type="checkbox" id="reset-on-startup" />
+      <span>Automatically reset all Force ON/OFF overrides to <strong>Auto</strong> on startup</span>
+    </label>
+  </div>
+
+  <div id="list"></div>
+
+  <script type="module">
+    const PLUGIN_VERSION = "3.2.0";
+    const GITHUB_REPO = "y3kdaniel/cogs-plugin-universal-scheduler";
+    const STORAGE_KEY = "cogs_universal_scheduler_v3";
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+    let cogs = null;
+    let isConnected = false;
+    let activeIds = new Set();
+    let hasInitialized = false;
+    let lastMinuteKey = "";
+    let openBulkHelper = {};
+
+    const DEFAULT_STORE = {
+      settings: { resetOverridesOnStartup: true },
+      schedules: [
+        {
+          id: "default-1",
+          name: "Night Show",
+          enabled: true,
+          override: "auto",
+          autoRecover: true,
+          mode: "dates",
+          dates: ["2026-10-30", "2026-10-31"],
+          daysOfWeek: [],
+          startTime: "17:00",
+          hasEndTime: true,
+          endTime: "23:00",
+          targetVariable: "ShowMode",
+          activeValue: "NightShow",
+          restoreOnEnd: true,
+          inactiveValue: "Preshow"
+        }
+      ]
+    };
+
+    function normalizeSchedule(s) {
+      return {
+        id: s.id || "sched-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+        name: s.name || "",
+        enabled: s.enabled !== false,
+        override: s.override || "auto",
+        autoRecover: s.autoRecover !== false,
+        mode: s.mode || "dates",
+        dates: Array.isArray(s.dates) ? s.dates : [],
+        daysOfWeek: Array.isArray(s.daysOfWeek) ? s.daysOfWeek : [],
+        startTime: s.startTime || "17:00",
+        hasEndTime: s.hasEndTime !== false,
+        endTime: s.endTime || "23:00",
+        targetVariable: s.targetVariable || "",
+        activeValue: s.activeValue !== undefined ? String(s.activeValue) : "",
+        restoreOnEnd: s.restoreOnEnd !== false,
+        inactiveValue: s.inactiveValue !== undefined ? String(s.inactiveValue) : ""
+      };
+    }
+
+    function loadFromLocal() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            settings: {
+              resetOverridesOnStartup:
+                parsed.settings && typeof parsed.settings.resetOverridesOnStartup === "boolean"
+                  ? parsed.settings.resetOverridesOnStartup
+                  : true
+            },
+            schedules: Array.isArray(parsed.schedules) ? parsed.schedules.map(normalizeSchedule) : []
+          };
+        }
+      } catch (e) {
+        console.warn("Local storage load failed:", e);
+      }
+      return JSON.parse(JSON.stringify(DEFAULT_STORE));
+    }
+
+    let store = loadFromLocal();
+
+    function applyStartupOverrideReset() {
+      if (store.settings.resetOverridesOnStartup) {
+        let changed = false;
+        for (const s of store.schedules) {
+          if (s.override && s.override !== "auto") {
+            s.override = "auto";
+            changed = true;
+          }
+        }
+        if (changed) persistStore();
+      }
+    }
+
+    function persistStore() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      } catch (e) {
+        console.warn("Local storage save failed:", e);
+      }
+      if (cogs && cogs.store) {
+        try {
+          cogs.store.setItems({ schedulerData: store });
+        } catch (e) {
+          console.warn("COGS store save failed:", e);
+        }
+      }
+    }
+
+    applyStartupOverrideReset();
+
+    function pad(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function parseTimeToMinutes(hhmm) {
+      if (!hhmm || !hhmm.includes(":")) return -1;
+      const [h, m] = hhmm.split(":").map(Number);
+      return Number.isNaN(h) || Number.isNaN(m) ? -1 : h * 60 + m;
+    }
+
+    function isWithinWindow(nowMinutes, startMinutes, hasEndTime, endMinutes) {
+      if (startMinutes < 0) return false;
+      if (!hasEndTime) return nowMinutes === startMinutes;
+      if (endMinutes < 0) return false;
+      if (startMinutes <= endMinutes) {
+        return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+      }
+      return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+    }
+
+    function isRuleActiveNow(rule, dateISO, dayName, nowMinutes) {
+      if (!rule.enabled) return false;
+      if (rule.override === "force_on") return true;
+      if (rule.override === "force_off") return false;
+
+      const startMin = parseTimeToMinutes(rule.startTime);
+      const endMin = parseTimeToMinutes(rule.endTime);
+      if (!isWithinWindow(nowMinutes, startMin, rule.hasEndTime, endMin)) return false;
+
+      if (rule.mode === "daily") return true;
+      if (rule.mode === "days") return Array.isArray(rule.daysOfWeek) && rule.daysOfWeek.includes(dayName);
+      if (rule.mode === "dates") return Array.isArray(rule.dates) && rule.dates.includes(dateISO);
+      return false;
+    }
+
+    function sendCogsState(payload) {
+      if (cogs && isConnected) {
+        cogs.setState(payload);
+      }
+    }
+
+    function sendCogsEvent(name, value) {
+      if (cogs && isConnected) {
+        cogs.sendEvent(name, value);
+      }
+    }
+
+    function tick() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const dayOfMonth = now.getDate();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const dayName = DAYS[now.getDay()];
+      const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+
+      const dateISO = `${year}-${pad(month)}-${pad(dayOfMonth)}`;
+      const timeStr = `${pad(hours)}:${pad(minutes)}`;
+      const nowMinutes = hours * 60 + minutes;
+
+      const currentActiveRules = store.schedules.filter((r) =>
+        isRuleActiveNow(r, dateISO, dayName, nowMinutes)
+      );
+      const nextIds = new Set(currentActiveRules.map((r) => r.id));
+
+      const activeNames = currentActiveRules.map((r) => r.name.trim()).filter(Boolean);
+      const activeFormatted = activeNames.map((n) => `|${n}|`).join("");
+
+      const latestRuleWithVar = [...currentActiveRules].reverse().find((r) => r.targetVariable && r.activeValue !== "");
+
+      const stateUpdate = {
+        activeSchedules: activeFormatted,
+        activeCount: currentActiveRules.length,
+        timeHHMM: hours * 100 + minutes,
+        minutesSinceMidnight: nowMinutes,
+        dayOfWeek: dayName,
+        isWeekend,
+        month,
+        dayOfMonth,
+        dateISO
+      };
+
+      const minuteKey = `${dateISO} ${timeStr}`;
+      if (minuteKey !== lastMinuteKey) {
+        lastMinuteKey = minuteKey;
+        sendCogsEvent("clockStrikes", timeStr);
+      }
+
+      let uiChanged = false;
+      if (nextIds.size !== activeIds.size || [...nextIds].some((id) => !activeIds.has(id))) {
+        uiChanged = true;
+      }
+
+      if (!hasInitialized) {
+        hasInitialized = true;
+        activeIds = nextIds;
+
+        let startupVar = "";
+        let startupVal = "";
+        for (const rule of currentActiveRules) {
+          if (rule.autoRecover) {
+            if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
+            if (rule.targetVariable && rule.activeValue !== "") {
+              startupVar = rule.targetVariable;
+              startupVal = rule.activeValue;
+            }
+          }
+        }
+        if (startupVar) {
+          stateUpdate.targetVariable = startupVar;
+          stateUpdate.targetValue = startupVal;
+        }
+        sendCogsState(stateUpdate);
+        updateStatusBar();
+        if (uiChanged) render();
+        return;
+      }
+
+      for (const rule of store.schedules) {
+        const wasActive = activeIds.has(rule.id);
+        const isNowActive = nextIds.has(rule.id);
+        if (wasActive && !isNowActive) {
+          if (rule.name) sendCogsEvent("scheduleEnded", rule.name.trim());
+          if (rule.hasEndTime && rule.restoreOnEnd && rule.targetVariable && rule.inactiveValue !== "") {
+            stateUpdate.targetVariable = rule.targetVariable;
+            stateUpdate.targetValue = rule.inactiveValue;
+          }
+        }
+      }
+
+      for (const rule of store.schedules) {
+        const wasActive = activeIds.has(rule.id);
+        const isNowActive = nextIds.has(rule.id);
+        if (!wasActive && isNowActive) {
+          if (rule.name) sendCogsEvent("scheduleStarted", rule.name.trim());
+          if (rule.targetVariable && rule.activeValue !== "") {
+            stateUpdate.targetVariable = rule.targetVariable;
+            stateUpdate.targetValue = rule.activeValue;
+          }
+        }
+      }
+
+      if (!stateUpdate.targetVariable && latestRuleWithVar) {
+        stateUpdate.targetVariable = latestRuleWithVar.targetVariable;
+        stateUpdate.targetValue = latestRuleWithVar.activeValue;
+      }
+
+      sendCogsState(stateUpdate);
+      activeIds = nextIds;
+      if (uiChanged) {
+        updateStatusBar();
+        render();
+      }
+    }
+
+    async function initCogs() {
+      if (typeof window.COGS === "undefined") {
+        document.getElementById("conn-pill").textContent = "Standalone (cogs-client.js not found)";
+        return;
+      }
+      try {
+        const { CogsConnection } = window.COGS;
+        const manifest = await (await fetch("./cogs-plugin-manifest.json")).json();
+        cogs = new CogsConnection(manifest, undefined, undefined, {
+          schedulerData: store
+        });
+
+        cogs.addEventListener("open", () => {
+          isConnected = true;
+          hasInitialized = false;
+          const pill = document.getElementById("conn-pill");
+          pill.textContent = "Connected to COGS";
+          pill.classList.add("ok");
+
+          if (cogs.store && cogs.store.items) {
+            const saved = cogs.store.items.getItem("schedulerData");
+            if (saved && Array.isArray(saved.schedules)) {
+              store = {
+                settings: { ...store.settings, ...(saved.settings || {}) },
+                schedules: saved.schedules.map(normalizeSchedule)
+              };
+              applyStartupOverrideReset();
+              document.getElementById("reset-on-startup").checked = !!store.settings.resetOverridesOnStartup;
+              render();
+            }
+          }
+          tick();
+        });
+
+        cogs.addEventListener("close", () => {
+          isConnected = false;
+          const pill = document.getElementById("conn-pill");
+          pill.textContent = "Disconnected";
+          pill.classList.remove("ok");
+        });
+      } catch (err) {
+        console.error("COGS connection init error:", err);
+      }
+    }
+
+    function updateStatusBar(prefix = "") {
+      const activeNames = store.schedules
+        .filter((s) => activeIds.has(s.id))
+        .map((s) => s.name || "Unnamed");
+      const msg = activeNames.length ? `Active right now: ${activeNames.join(", ")}` : "No schedule active right now";
+      document.getElementById("status").textContent = prefix ? `${prefix} ${msg}` : msg;
+
+      const hasOverrides = store.schedules.some((s) => s.override && s.override !== "auto");
+      document.getElementById("reset-overrides-btn").style.display = hasOverrides ? "inline-block" : "none";
+    }
+
+    function markDirty() {
+      document.getElementById("status").textContent = "Unsaved changes — click Save Changes";
+    }
+
+    function saveAll(prefix = "Saved!") {
+      persistStore();
+      hasInitialized = false;
+      tick();
+      updateStatusBar(prefix);
+    }
+
+    async function checkForUpdates() {
+      const el = document.getElementById("update-status");
+      el.textContent = "Checking...";
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+          headers: { Accept: "application/vnd.github+json" }
+        });
+        if (!res.ok) {
+          el.textContent = "No releases published yet.";
+          return;
+        }
+        const data = await res.json();
+        const latest = (data.tag_name || "").replace(/^v/i, "");
+        if (!latest || latest === PLUGIN_VERSION) {
+          el.textContent = "Up to date!";
+        } else {
+          el.innerHTML = `Update available: <a href="${data.html_url}" target="_blank">v${latest}</a>`;
+        }
+      } catch (e) {
+        el.textContent = "Offline / Local mode";
+      }
+    }
+
+    function exportSchedules() {
+      const payload = {
+        pluginVersion: PLUGIN_VERSION,
+        exportedAt: new Date().toISOString(),
+        settings: store.settings,
+        schedules: store.schedules
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cogs-schedules-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function handleImportFile(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const importedSchedules = Array.isArray(parsed) ? parsed : parsed.schedules;
+          if (!Array.isArray(importedSchedules)) {
+            alert("Invalid schedule JSON file: could not find a schedules list.");
+            return;
+          }
+          if (parsed.settings && typeof parsed.settings === "object") {
+            store.settings = { ...store.settings, ...parsed.settings };
+          }
+          store.schedules = importedSchedules.map(normalizeSchedule);
+          document.getElementById("reset-on-startup").checked = !!store.settings.resetOverridesOnStartup;
+          saveAll(`Imported ${store.schedules.length} schedule(s)!`);
+          render();
+        } catch (err) {
+          alert("Failed to parse JSON file: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    window.setOverride = (idx, mode) => {
+      store.schedules[idx].override = mode;
+      saveAll("Override updated!");
+      render();
+    };
+
+    window.duplicateSchedule = (idx) => {
+      const copy = normalizeSchedule(JSON.parse(JSON.stringify(store.schedules[idx])));
+      copy.id = "sched-" + Date.now();
+      copy.name = (copy.name || "Schedule") + " (Copy)";
+      copy.override = "auto";
+      store.schedules.splice(idx + 1, 0, copy);
+      markDirty();
+      render();
+    };
+
+    window.removeSchedule = (idx) => {
+      store.schedules.splice(idx, 1);
+      markDirty();
+      render();
+    };
+
+    window.addDate = (idx) => {
+      const picker = document.getElementById(`date-picker-${idx}`);
+      if (!picker || !picker.value) return;
+      if (!store.schedules[idx].dates.includes(picker.value)) {
+        store.schedules[idx].dates.push(picker.value);
+        store.schedules[idx].dates.sort();
+      }
+      picker.value = "";
+      markDirty();
+      render();
+    };
+
+    window.removeDate = (idx, dateStr) => {
+      store.schedules[idx].dates = store.schedules[idx].dates.filter((d) => d !== dateStr);
+      markDirty();
+      render();
+    };
+
+    window.clearAllDates = (idx) => {
+      store.schedules[idx].dates = [];
+      markDirty();
+      render();
+    };
+
+    window.toggleBulkHelper = (id) => {
+      openBulkHelper[id] = !openBulkHelper[id];
+      render();
+    };
+
+    window.addDateRange = (idx) => {
+      const fromVal = document.getElementById(`range-from-${idx}`).value;
+      const toVal = document.getElementById(`range-to-${idx}`).value;
+      if (!fromVal || !toVal) return;
+
+      const allowedDays = new Set();
+      DAYS.forEach((day) => {
+        const cb = document.getElementById(`range-day-${idx}-${day}`);
+        if (cb && cb.checked) allowedDays.add(day);
+      });
+      if (allowedDays.size === 0) return;
+
+      const [fy, fm, fd] = fromVal.split("-").map(Number);
+      const [ty, tm, td] = toVal.split("-").map(Number);
+      const start = new Date(Date.UTC(fy, fm - 1, fd));
+      const end = new Date(Date.UTC(ty, tm - 1, td));
+      if (start > end) return;
+
+      const existing = new Set(store.schedules[idx].dates);
+      const cursor = new Date(start);
+      let safety = 0;
+
+      while (cursor <= end && safety < 730) {
+        const dayName = JS_DAY_NAMES[cursor.getUTCDay()];
+        if (allowedDays.has(dayName)) {
+          existing.add(cursor.toISOString().slice(0, 10));
+        }
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+        safety++;
+      }
+
+      store.schedules[idx].dates = Array.from(existing).sort();
+      markDirty();
+      render();
+    };
+
+    window.setRangePreset = (idx, preset) => {
+      DAYS.forEach((day) => {
+        const cb = document.getElementById(`range-day-${idx}-${day}`);
+        if (!cb) return;
+        if (preset === "all") cb.checked = true;
+        if (preset === "fri-sat") cb.checked = day === "Friday" || day === "Saturday";
+        if (preset === "fri-sun") cb.checked = day === "Friday" || day === "Saturday" || day === "Sunday";
+      });
+    };
+
+    window.toggleDay = (idx, day) => {
+      const arr = store.schedules[idx].daysOfWeek;
+      if (arr.includes(day)) {
+        store.schedules[idx].daysOfWeek = arr.filter((d) => d !== day);
+      } else {
+        arr.push(day);
+      }
+      markDirty();
+      render();
+    };
+
+    window.updateField = (idx, field, val, rerender = false) => {
+      store.schedules[idx][field] = val;
+      markDirty();
+      if (rerender) render();
+    };
+
+    function render() {
+      const container = document.getElementById("list");
+      container.innerHTML = "";
+
+      store.schedules.forEach((s, idx) => {
+        const isActive = activeIds.has(s.id);
+        const ov = s.override || "auto";
+        const isForced = ov !== "auto";
+        const hasEnd = s.hasEndTime !== false;
+        const bulkOpen = !!openBulkHelper[s.id];
+
+        const card = document.createElement("div");
+        card.className = "card" + (isForced ? " forced" : isActive ? " active-now" : "");
+
+        let dateControls = "";
+        if (s.mode === "dates") {
+          const chips = s.dates
+            .map((d) => `<div class="chip">${d} <span onclick="removeDate(${idx}, '${d}')">×</span></div>`)
+            .join("");
+
+          const dayFilterPills = DAYS.map(
+            (day) => `<label class="day-pill"><input type="checkbox" id="range-day-${idx}-${day}" checked /> ${day.slice(0, 3)}</label>`
+          ).join("");
+
+          const bulkPanel = bulkOpen
+            ? `<div class="sub-panel" style="margin-bottom:8px;">
+                <div class="row" style="margin-bottom:8px;">
+                  <label class="lbl">From</label>
+                  <input type="date" id="range-from-${idx}" />
+                  <label class="lbl">to</label>
+                  <input type="date" id="range-to-${idx}" />
+                  <button class="secondary" onclick="addDateRange(${idx})">Add Matching Dates</button>
+                </div>
+                <div class="row" style="margin-bottom:0;">
+                  <label class="lbl">Include:</label>
+                  ${dayFilterPills}
+                  <button class="ghost" onclick="setRangePreset(${idx}, 'all')">All</button>
+                  <button class="ghost" onclick="setRangePreset(${idx}, 'fri-sat')">Fri–Sat</button>
+                  <button class="ghost" onclick="setRangePreset(${idx}, 'fri-sun')">Fri–Sun</button>
+                </div>
+              </div>`
+            : "";
+
+          dateControls = `
+            <div class="row" style="margin-bottom:6px;">
+              <input type="date" id="date-picker-${idx}" />
+              <button class="secondary" onclick="addDate(${idx})">+ Add Date</button>
+              <button class="ghost" onclick="toggleBulkHelper('${s.id}')">
+                ${bulkOpen ? "Hide Date Range Helper" : "Bulk Add Date Range..."}
+              </button>
+              ${s.dates.length > 0 ? `<button class="ghost" onclick="clearAllDates(${idx})">Clear All (${s.dates.length})</button>` : ""}
+            </div>
+            ${bulkPanel}
+            <div class="chips">${chips || "<span style='color:#6b7280;font-size:12px;'>No dates selected yet</span>"}</div>
+          `;
+        } else if (s.mode === "days") {
+          const pills = DAYS.map((day) => {
+            const checked = s.daysOfWeek.includes(day) ? "checked" : "";
+            return `<label class="day-pill"><input type="checkbox" ${checked} onchange="toggleDay(${idx}, '${day}')"/> ${day.slice(0, 3)}</label>`;
+          }).join("");
+          dateControls = `<div class="row">${pills}</div>`;
+        }
+
+        const endVarControls = hasEnd
+          ? `<label class="lbl" style="margin-left:6px;">
+              <input type="checkbox" ${s.restoreOnEnd !== false ? "checked" : ""} onchange="updateField(${idx}, 'restoreOnEnd', this.checked, true)" />
+              When Ended →
+            </label>
+            ${
+              s.restoreOnEnd !== false
+                ? `<input type="text" style="width:120px;" value="${s.inactiveValue || ""}" placeholder="End Value" oninput="updateField(${idx}, 'inactiveValue', this.value)" />`
+                : ""
+            }`
+          : "";
+
+        card.innerHTML = `
+          <div class="row" style="justify-content:space-between;">
+            <div class="row" style="margin:0;">
+              <input type="checkbox" ${s.enabled ? "checked" : ""} onchange="updateField(${idx}, 'enabled', this.checked)" />
+              <input type="text" value="${s.name}" placeholder="Schedule Name" oninput="updateField(${idx}, 'name', this.value)" />
+              ${isActive ? '<span class="badge">Active Now</span>' : ""}
+              ${isForced ? `<span class="badge warn">${ov === "force_on" ? "Forced ON" : "Forced OFF"}</span>` : ""}
+            </div>
+            <div class="row" style="margin:0;">
+              <div class="override-group" title="Manual Override">
+                <button class="override-btn ${ov === "auto" ? "sel-auto" : ""}" onclick="setOverride(${idx}, 'auto')">Auto</button>
+                <button class="override-btn ${ov === "force_on" ? "sel-on" : ""}" onclick="setOverride(${idx}, 'force_on')">Force ON</button>
+                <button class="override-btn ${ov === "force_off" ? "sel-off" : ""}" onclick="setOverride(${idx}, 'force_off')">Force OFF</button>
+              </div>
+              <button class="ghost" onclick="duplicateSchedule(${idx})" title="Clone this schedule">Duplicate</button>
+              <button class="danger" onclick="removeSchedule(${idx})">Delete</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <label class="lbl">Runs:</label>
+            <select onchange="updateField(${idx}, 'mode', this.value, true)">
+              <option value="dates" ${s.mode === "dates" ? "selected" : ""}>Specific Calendar Dates</option>
+              <option value="days" ${s.mode === "days" ? "selected" : ""}>Days of the Week</option>
+              <option value="daily" ${s.mode === "daily" ? "selected" : ""}>Every Day</option>
+            </select>
+
+            <label class="lbl">${hasEnd ? "From" : "At"}</label>
+            <input type="time" value="${s.startTime}" onchange="updateField(${idx}, 'startTime', this.value)" />
+
+            <label class="lbl" style="cursor:pointer;">
+              <input type="checkbox" ${hasEnd ? "checked" : ""} onchange="updateField(${idx}, 'hasEndTime', this.checked, true)" />
+              End Time:
+            </label>
+            ${hasEnd ? `<input type="time" value="${s.endTime}" onchange="updateField(${idx}, 'endTime', this.value)" />` : ""}
+
+            <label class="lbl" style="margin-left:8px; cursor:pointer;" title="If checked, re-triggers this schedule immediately if the PC reboots mid-window">
+              <input type="checkbox" ${s.autoRecover !== false ? "checked" : ""} onchange="updateField(${idx}, 'autoRecover', this.checked)" />
+              Auto-recover after power loss
+            </label>
+          </div>
+
+          ${dateControls}
+
+          <div class="sub-panel">
+            <div class="row" style="margin:0;">
+              <label class="lbl">Target Variable Name:</label>
+              <input type="text" style="width:140px;" value="${s.targetVariable || ""}" placeholder="e.g. ShowMode" oninput="updateField(${idx}, 'targetVariable', this.value)" />
+              <label class="lbl">When Active →</label>
+              <input type="text" style="width:120px;" value="${s.activeValue || ""}" placeholder="Active Value" oninput="updateField(${idx}, 'activeValue', this.value)" />
+              ${endVarControls}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    document.getElementById("reset-on-startup").checked = !!store.settings.resetOverridesOnStartup;
+    document.getElementById("reset-on-startup").addEventListener("change", (e) => {
+      store.settings.resetOverridesOnStartup = e.target.checked;
+      saveAll();
+    });
+    document.getElementById("reset-overrides-btn").addEventListener("click", () => {
+      store.schedules.forEach((s) => { s.override = "auto"; });
+      saveAll("Overrides cleared!");
+      render();
+    });
+    document.getElementById("btn-updates").addEventListener("click", checkForUpdates);
+    document.getElementById("btn-export").addEventListener("click", exportSchedules);
+    document.getElementById("btn-import").addEventListener("click", () => {
+      const input = document.getElementById("import-file");
+      input.value = "";
+      input.click();
+    });
+    document.getElementById("import-file").addEventListener("change", handleImportFile);
+    document.getElementById("btn-add").addEventListener("click", () => {
+      store.schedules.push(normalizeSchedule({ name: "New Show", dates: [] }));
+      markDirty();
+      render();
+    });
+    document.getElementById("btn-save").addEventListener("click", () => saveAll());
+
+    initCogs();
+    tick();
+    render();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>
