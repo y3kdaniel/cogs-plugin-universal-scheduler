@@ -342,10 +342,18 @@
     }
 
     function sendCogsState(payload) {
-      if (cogs && isConnected) {
-        cogs.setState(payload);
+      if (!cogs || !isConnected) return;
+      try {
+        if (typeof cogs.setState === "function") {
+          cogs.setState(payload);
+        } else if (typeof cogs.sendState === "function") {
+          cogs.sendState(payload);
+        }
+      } catch (err) {
+        document.getElementById("status").textContent = "State error: " + err.message;
       }
     }
+
 
     function sendCogsEvent(name, value) {
       if (cogs && isConnected) {
@@ -470,13 +478,7 @@
       try {
         const { CogsConnection } = window.COGS;
         const manifest = await (await fetch("./cogs-plugin-manifest.json")).json();
-
-        cogs = new CogsConnection({
-          manifest,
-          initialStoreItems: {
-            schedulerData: store
-          }
-        });
+        cogs = new CogsConnection(manifest);
 
         cogs.addEventListener("open", () => {
           isConnected = true;
@@ -484,19 +486,6 @@
           const pill = document.getElementById("conn-pill");
           pill.textContent = "Connected to COGS";
           pill.classList.add("ok");
-
-          if (cogs.store && cogs.store.items) {
-            const saved = cogs.store.items.getItem("schedulerData");
-            if (saved && Array.isArray(saved.schedules)) {
-              store = {
-                settings: { ...store.settings, ...(saved.settings || {}) },
-                schedules: saved.schedules.map(normalizeSchedule)
-              };
-              applyStartupOverrideReset();
-              document.getElementById("reset-on-startup").checked = !!store.settings.resetOverridesOnStartup;
-              render();
-            }
-          }
           tick();
         });
 
@@ -507,10 +496,10 @@
           pill.classList.remove("ok");
         });
       } catch (err) {
-        console.error("COGS connection init error:", err);
         document.getElementById("status").textContent = "COGS init error: " + err.message;
       }
     }
+
 
 
     function updateStatusBar(prefix = "") {
