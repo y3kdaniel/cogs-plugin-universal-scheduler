@@ -24,7 +24,7 @@ const DEFAULT_DATA = {
       id: "default-1",
       name: "Night Show",
       enabled: true,
-      override: "auto", // "auto" | "force_on" | "force_off"
+      override: "auto",
       autoRecover: true,
       mode: "dates",
       dates: ["2026-10-30", "2026-10-31"],
@@ -44,7 +44,6 @@ function loadData() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-      // Migrate older array-only format seamlessly if present
       if (Array.isArray(parsed)) {
         return {
           settings: { resetOverridesOnStartup: true },
@@ -95,7 +94,6 @@ function saveData() {
 
 let store = loadData();
 
-// Clear overrides immediately on process startup if setting is enabled
 if (store.settings.resetOverridesOnStartup) {
   let changed = false;
   for (const s of store.schedules) {
@@ -131,7 +129,6 @@ function applyVariable(varName, rawValue) {
   }
 }
 
-// Local HTTP API for admin/index.html
 const server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -199,7 +196,6 @@ function parseTimeToMinutes(hhmm) {
 
 function isWithinWindow(nowMinutes, startMinutes, hasEndTime, endMinutes) {
   if (startMinutes < 0) return false;
-  // One-shot mode (no end time): active during the exact start minute
   if (!hasEndTime) {
     return nowMinutes === startMinutes;
   }
@@ -269,7 +265,6 @@ function tick() {
     cogs.sendEvent("clockStrikes", timeStr);
   }
 
-  // Initial boot/connect: only trigger startup actions for rules with autoRecover enabled
   if (!hasInitialized) {
     hasInitialized = true;
     activeIds = nextIds;
@@ -283,7 +278,6 @@ function tick() {
     return;
   }
 
-  // Normal boundary transitions: ended rules first, then newly started rules
   for (const rule of store.schedules) {
     const wasActive = activeIds.has(rule.id);
     const isNowActive = nextIds.has(rule.id);
@@ -315,7 +309,6 @@ cogs.addEventListener("open", () => {
   tick();
 });
 
-// Ensure variable types are coerced accurately once COGS sends showVariables metadata on startup
 cogs.addEventListener("showVariables", () => {
   if (hasInitialized && !hasAppliedStartupVariables) {
     hasAppliedStartupVariables = true;
