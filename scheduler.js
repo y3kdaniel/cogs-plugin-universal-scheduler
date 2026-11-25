@@ -1,3 +1,11 @@
+window.onerror = function (msg, src, line) {
+  const tel = document.getElementById("telemetry");
+  if (tel) {
+    tel.style.color = "#f87171";
+    tel.textContent = "JS Error (line " + line + "): " + msg;
+  }
+};
+
 const PLUGIN_VERSION = "3.2.0";
 const GITHUB_REPO = "y3kdaniel/cogs-plugin-universal-scheduler";
 const STORAGE_KEY = "cogs_universal_scheduler_v3";
@@ -8,7 +16,18 @@ const INLINE_MANIFEST = {
   name: "Universal Scheduler",
   version: "3.2.0",
   minCogsVersion: "4.10.0",
+  config: [
+    {
+      name: "openScheduleEditor",
+      value: { type: "boolean", default: true }
+    }
+  ],
   showVariables: { read: true, write: true },
+  store: {
+    items: {
+      schedulerData: { persistValue: true }
+    }
+  },
   state: [
     { name: "activeSchedules", value: { type: "string", default: "" } },
     { name: "activeCount", value: { type: "number", default: 0, min: 0, integer: true } },
@@ -135,8 +154,8 @@ function pad(n) {
 function parseTimeToMinutes(hhmm) {
   if (!hhmm || !hhmm.includes(":")) return -1;
   const parts = hhmm.split(":");
-  const h = Number(parts[0]);
-  const m = Number(parts[1]);
+  const h = Number(parts.at(0));
+  const m = Number(parts.at(1));
   return Number.isNaN(h) || Number.isNaN(m) ? -1 : h * 60 + m;
 }
 
@@ -236,7 +255,7 @@ function tick() {
   const dayOfMonth = now.getDate();
   const hours = now.getHours();
   const minutes = now.getMinutes();
-  const dayName = JS_DAY_NAMES[now.getDay()];
+  const dayName = JS_DAY_NAMES.at(now.getDay());
   const isWeekend = now.getDay() === 0 || now.getDay() === 6;
 
   const dateISO = year + "-" + pad(month) + "-" + pad(dayOfMonth);
@@ -286,17 +305,17 @@ function tick() {
     return;
   }
 
-  for (const rule of AppState.store.schedules) {
-    const wasActive = AppState.activeIds.has(rule.id);
-    const isNowActive = nextIds.has(rule.id);
-    if (wasActive && !isNowActive) {
-      if (rule.name) sendCogsEvent("scheduleEnded", rule.name.trim());
-      if (rule.hasEndTime && rule.restoreOnEnd) {
-        applyShowVariable(rule.targetVariable, rule.inactiveValue);
-      }
-    }
-  }
-
+Use code with caution.
+for (const rule of AppState.store.schedules) {
+const wasActive = AppState.activeIds.has(rule.id);
+const isNowActive = nextIds.has(rule.id);
+if (wasActive && !isNowActive) {
+if (rule.name) sendCogsEvent("scheduleEnded", rule.name.trim());
+if (rule.hasEndTime && rule.restoreOnEnd) {
+applyShowVariable(rule.targetVariable, rule.inactiveValue);
+}
+}
+}
 for (const rule of AppState.store.schedules) {
 const wasActive = AppState.activeIds.has(rule.id);
 const isNowActive = nextIds.has(rule.id);
