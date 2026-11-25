@@ -312,8 +312,7 @@ function tick() {
     if (uiChanged && typeof render === "function") render();
     return;
   }
-
-Use code with caution.
+  
 for (const rule of AppState.store.schedules) {
 const wasActive = AppState.activeIds.has(rule.id);
 const isNowActive = nextIds.has(rule.id);
