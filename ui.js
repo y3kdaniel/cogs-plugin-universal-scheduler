@@ -61,7 +61,7 @@ async function checkForUpdates() {
   const statusEl = document.getElementById("update-status");
   statusEl.textContent = "Checking...";
   try {
-    const res = await fetch("https://github.com" + GITHUB_REPO + "/releases/latest", {
+    const res = await fetch("https://github.com/" + GITHUB_REPO + "/releases/latest", {
       headers: { Accept: "application/vnd.github+json" }
     });
     if (!res.ok) {
@@ -202,55 +202,9 @@ function addDateRange(idx, fromEl, toEl, dayCheckboxes) {
   render();
 }
 
-function buildValueControl(idx, field, varName, currentVal) {
-  const varDef = AppState.showVariables ? AppState.showVariables[varName] : null;
-  const safeVal = currentVal === undefined ? "" : String(currentVal);
-
-  if (varDef && varDef.type === "option" && Array.isArray(varDef.options)) {
-    const opts = [el("option", { value: "", text: "-- Select --" })];
-    varDef.options.forEach(function (o) {
-      const opt = el("option", { value: String(o), text: String(o) });
-      if (safeVal === String(o)) opt.selected = true;
-      opts.push(opt);
-    });
-    return el("select", {
-      onChange: function (e) {
-        AppState.store.schedules.at(idx)[field] = e.target.value;
-        markDirty();
-      }
-    }, opts);
-  }
-
-  if (varDef && varDef.type === "boolean") {
-    const optEmpty = el("option", { value: "", text: "-- Select --" });
-    const optTrue = el("option", { value: "true", text: "True" });
-    const optFalse = el("option", { value: "false", text: "False" });
-    if (safeVal === "true") optTrue.selected = true;
-    if (safeVal === "false") optFalse.selected = true;
-    return el("select", {
-      onChange: function (e) {
-        AppState.store.schedules.at(idx)[field] = e.target.value;
-        markDirty();
-      }
-    }, [optEmpty, optTrue, optFalse]);
-  }
-
-  return el("input", {
-    type: "text",
-    style: "width:120px;",
-    value: safeVal,
-    placeholder: "Value",
-    onInput: function (e) {
-      AppState.store.schedules.at(idx)[field] = e.target.value;
-      markDirty();
-    }
-  });
-}
-
 function render() {
   const container = document.getElementById("list");
   container.innerHTML = "";
-  const varNames = AppState.showVariables ? Object.keys(AppState.showVariables).sort() : [];
 
   AppState.store.schedules.forEach(function (s, idx) {
     const isActive = AppState.activeIds.has(s.id);
@@ -259,7 +213,11 @@ function render() {
     const hasEnd = s.hasEndTime !== false;
     const bulkOpen = !!AppState.openBulkHelper[s.id];
 
-    // Row 1: Header & Overrides
+    const eventHint = el("span", {
+      style: "font-size:11px; color:#6b7280; font-family:monospace;",
+      text: s.name.trim() ? 'COGS Event: "' + s.name.trim() + '"' : ""
+    });
+
     const leftGroup = el("div", { className: "row", style: "margin:0;" }, [
       el("input", {
         type: "checkbox",
@@ -270,10 +228,15 @@ function render() {
         type: "text",
         value: s.name,
         placeholder: "Schedule Name",
-        onInput: function (e) { s.name = e.target.value; markDirty(); }
+        onInput: function (e) {
+          s.name = e.target.value;
+          eventHint.textContent = s.name.trim() ? 'COGS Event: "' + s.name.trim() + '"' : "";
+          markDirty();
+        }
       }),
       isActive ? el("span", { className: "badge", text: "Active Now" }) : null,
-      isForced ? el("span", { className: "badge warn", text: ov === "force_on" ? "Forced ON" : "Forced OFF" }) : null
+      isForced ? el("span", { className: "badge warn", text: ov === "force_on" ? "Forced ON" : "Forced OFF" }) : null,
+      eventHint
     ]);
 
     const overrideGroup = el("div", { className: "override-group", title: "Manual Override" }, [
@@ -296,34 +259,36 @@ function render() {
 
     const rightGroup = el("div", { className: "row", style: "margin:0;" }, [
       overrideGroup,
-el("button", { className: "ghost", text: "Duplicate", onClick: function () { duplicateSchedule(idx); } }),
-el("button", { className: "danger", text: "Delete", onClick: function () { removeSchedule(idx); } })
-]);
-const headerRow = el("div", { className: "row", style: "justify-content:space-between;" }, [leftGroup, rightGroup]);
-// Row 2: Mode, Times, & Power-Loss Recovery
-const modeSelect = el("select", {
-onChange: function (e) { s.mode = e.target.value; markDirty(); render(); }
-}, [
-el("option", { value: "dates", text: "Specific Calendar Dates" }),
-el("option", { value: "days", text: "Days of the Week" }),
-el("option", { value: "daily", text: "Every Day" })
-]);
-modeSelect.value = s.mode;
-const timingRow = el("div", { className: "row" }, [
-el("label", { className: "lbl", text: "Runs:" }),
-modeSelect,
-el("label", { className: "lbl", text: hasEnd ? "From" : "At" }),
-el("input", {
-type: "time",
-value: s.startTime,
-onChange: function (e) { s.startTime = e.target.value; markDirty(); }
-}),
-el("label", { className: "lbl", style: "cursor:pointer;" }, [
-el("input", {
-type: "checkbox",
-checked: hasEnd,
-onChange: function (e) { s.hasEndTime = e.target.checked; markDirty(); render(); }
-}),
+      el("button", { className: "ghost", text: "Duplicate", onClick: function () { duplicateSchedule(idx); } }),
+      el("button", { className: "danger", text: "Delete", onClick: function () { removeSchedule(idx); } })
+    ]);
+
+    const headerRow = el("div", { className: "row", style: "justify-content:space-between;" }, [leftGroup, rightGroup]);
+
+    const modeSelect = el("select", {
+      onChange: function (e) { s.mode = e.target.value; markDirty(); render(); }
+    }, [
+      el("option", { value: "dates", text: "Specific Calendar Dates" }),
+      el("option", { value: "days", text: "Days of the Week" }),
+      el("option", { value: "daily", text: "Every Day" })
+    ]);
+    modeSelect.value = s.mode;
+
+    const timingRow = el("div", { className: "row" }, [
+      el("label", { className: "lbl", text: "Runs:" }),
+      modeSelect,
+      el("label", { className: "lbl", text: hasEnd ? "From" : "At" }),
+      el("input", {
+        type: "time",
+        value: s.startTime,
+        onChange: function (e) { s.startTime = e.target.value; markDirty(); }
+      }),
+      el("label", { className: "lbl", style: "cursor:pointer;" }, [
+        el("input", {
+          type: "checkbox",
+          checked: hasEnd,
+          onChange: function (e) { s.hasEndTime = e.target.checked; markDirty(); render(); }
+        }),
 " End Time:"
 ]),
 hasEnd ? el("input", {
@@ -334,7 +299,7 @@ onChange: function (e) { s.endTime = e.target.value; markDirty(); }
 el("label", {
 className: "lbl",
 style: "margin-left:8px; cursor:pointer;",
-title: "If checked, re-triggers this schedule immediately if the PC reboots mid-window"
+title: "If checked, re-triggers scheduleStarted immediately if the PC reboots mid-window"
 }, [
 el("input", {
 type: "checkbox",
@@ -344,7 +309,6 @@ onChange: function (e) { s.autoRecover = e.target.checked; markDirty(); }
 " Auto-recover after power loss"
 ])
 ]);
-// Row 3: Date or Day-of-Week Controls
 const dateSection = el("div", {});
 if (s.mode === "dates") {
 const singlePicker = el("input", { type: "date" });
@@ -443,59 +407,9 @@ render();
 });
 dateSection.appendChild(el("div", { className: "row" }, pills));
 }
-// Row 4: Target Show Variable Controls
-const varRowChildren = [el("label", { className: "lbl", text: "Target Show Variable:" })];
-if (varNames.length > 0) {
-const varSelect = el("select", {
-onChange: function (e) {
-s.targetVariable = e.target.value;
-s.activeValue = "";
-s.inactiveValue = "";
-markDirty();
-render();
-}
-}, [el("option", { value: "", text: "(None — use events/states only)" })].concat(
-varNames.map(function (v) { return el("option", { value: v, text: v }); })
-));
-varSelect.value = s.targetVariable;
-varRowChildren.push(varSelect);
-} else {
-varRowChildren.push(el("input", {
-type: "text",
-style: "width:140px;",
-value: s.targetVariable || "",
-placeholder: "e.g. ShowMode",
-onInput: function (e) {
-const wasEmpty = !s.targetVariable;
-s.targetVariable = e.target.value;
-markDirty();
-if (wasEmpty && s.targetVariable) render();
-}
-}));
-}
-if (s.targetVariable) {
-varRowChildren.push(el("label", { className: "lbl", text: "When Active →" }));
-varRowChildren.push(buildValueControl(idx, "activeValue", s.targetVariable, s.activeValue));
-if (hasEnd) {
-varRowChildren.push(el("label", { className: "lbl", style: "margin-left:6px;" }, [
-el("input", {
-type: "checkbox",
-checked: s.restoreOnEnd !== false,
-onChange: function (e) { s.restoreOnEnd = e.target.checked; markDirty(); render(); }
-}),
-" When Ended →"
-]));
-if (s.restoreOnEnd !== false) {
-varRowChildren.push(buildValueControl(idx, "inactiveValue", s.targetVariable, s.inactiveValue));
-}
-}
-}
-const varBox = el("div", { className: "sub-panel" }, [
-el("div", { className: "row", style: "margin:0;" }, varRowChildren)
-]);
 const card = el("div", {
 className: "card" + (isForced ? " forced" : isActive ? " active-now" : "")
-}, [headerRow, timingRow, dateSection, varBox]);
+}, [headerRow, timingRow, dateSection]);
 container.appendChild(card);
 });
 }
