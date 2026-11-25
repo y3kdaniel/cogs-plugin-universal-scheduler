@@ -22,11 +22,6 @@ const INLINE_MANIFEST = {
       value: { type: "boolean", default: true }
     }
   ],
-  store: {
-    items: {
-      schedulerData: { persistValue: true }
-    }
-  },
   state: [
     { name: "activeSchedules", value: { type: "string", default: "" } },
     { name: "activeCount", value: { type: "number", default: 0, min: 0, integer: true } },
