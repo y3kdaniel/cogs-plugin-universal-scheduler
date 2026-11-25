@@ -368,7 +368,7 @@
       const dayOfMonth = now.getDate();
       const hours = now.getHours();
       const minutes = now.getMinutes();
-      const dayName = DAYS[now.getDay()];
+      const dayName = JS_DAY_NAMES[now.getDay()];
       const isWeekend = now.getDay() === 0 || now.getDay() === 6;
 
       const dateISO = `${year}-${pad(month)}-${pad(dayOfMonth)}`;
