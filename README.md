@@ -1,35 +1,40 @@
 # Universal Scheduler Plugin for COGS
 
-A visual scheduling and time/date automation plugin for [Clockwork Dog COGS](https://cogs.show). Designed for multi-date attractions, seasonal events, and daily show automation with configurable power-loss recovery.
+A visual scheduling and time/date automation plugin for [Clockwork Dog COGS](https://cogs.show) designed for multi-date attractions, seasonal events, and daily show automation.
 
 ## Features
-* **Visual Admin UI inside COGS:** Manage schedules with native date pickers, day-of-week toggles, and start/end time selectors—no config syntax required.
-* **Bulk Date Range Helper:** Add date ranges filtered by specific days of the week (e.g., all Fridays–Sundays in October) in two clicks.
-* **Direct Show Variable Control:** Automatically sets any COGS Show Variable (Option, Boolean, Number, or String) when a schedule starts and optionally reverts it when it ends.
-* **One-Shot or Window Modes:** Use a start + end time window, or uncheck **End Time** for a single-minute one-shot trigger.
-* **Per-Schedule Power-Loss Recovery:** Choose which schedules should automatically re-trigger if the PC reboots mid-show after a crash or power outage.
-* **Manual Overrides & Safety Reset:** Test schedules anytime with **Auto / Force ON / Force OFF** toggles, plus a one-click reset and optional automatic reset on startup.
-* **Live Date & Time States:** Exposes `dateISO`, `dayOfWeek`, `isWeekend`, `timeHHMM`, `minutesSinceMidnight`, `activeSchedules`, and `clockStrikes` for custom COGS behaviours.
-* **Import / Export JSON:** Back up or clone schedule profiles across multiple show machines.
+* **Visual Admin UI inside COGS:** Native date pickers, day-of-week toggles, and start/end time selectors.
+* **Bulk Date Range & Show Variable Automation:** Quickly filter date ranges and trigger show variable updates (`targetVariable` and `targetValue`) dynamically.
+* **Flexible Trigger Modes:** Use start/end time windows or uncheck the end time for single-minute one-shot triggers.
+* **Power-Loss Recovery & Manual Overrides:** Per-schedule recovery options for PC reboots, plus **Auto / Force ON / Force OFF** safety toggles and live date/time state exposure.
+* **Import / Export JSON:** Backup and clone schedule profiles across show machines.
 
-## Installation
+## Folder Structure & Installation
 
-1. Locate your COGS `plugins` directory:
-   * **Windows:** `%APPDATA%\cogs\plugins`
-   * **macOS:** `~/Library/Application Support/cogs/plugins`
-2. Clone or copy this folder into `plugins/cogs-plugin-universal-scheduler`.
-3. Open a terminal inside `cogs-plugin-universal-scheduler` and install dependencies:
-   ```bash
-   npm install
-   ```
-4. Restart COGS (or reload plugins) and open **Plugins → Universal Scheduler** to configure your schedules.
+```text
+cogs-plugin-universal-scheduler/
+├── cogs-client.js
+├── cogs-plugin-manifest.json
+├── index.html
+├── LICENSE
+└── README.md
+```
+
+1. **Locate plugins folder:** Place the folder into your COGS `plugins` directory (`%APPDATA%\cogs\plugins` on Windows or `~/Library/Application Support/cogs/plugins` on macOS).
+2. **Add browser client:** Download or install `@clockworkdog/cogs-client` into the plugin root as `cogs-client.js` for offline operation.
+3. **Configure:** Restart COGS and open **Plugins → Universal Scheduler**.
+
+## COGS Behaviour Setup & Exposed States
+
+Add a lightweight Behaviour in your COGS project to map `Universal Scheduler` state changes (`targetValue` / `targetVariable`) to your COGS Show Variables. 
+
+* **Exposed States:** `activeSchedules`, `activeCount`, `targetVariable`, `targetValue`, `dateISO`, `dayOfWeek`, `isWeekend`, `timeHHMM`, `minutesSinceMidnight`.
+* **Exposed Events:** `scheduleStarted`, `scheduleEnded`, `clockStrikes`.
 
 ## Power-Loss Recovery Checklist
-To ensure your attraction recovers automatically after an unexpected power outage:
-1. Enable **Restore on AC/Power Loss → Power On** in your PC's BIOS/UEFI.
-2. Configure Windows/macOS to auto-login and launch COGS on startup.
-3. Enable **Auto-start Show** in your COGS project settings.
-4. Keep **Auto-recover after power loss** checked on any schedule that should resume mid-window.
+1. Enable **Power On** after AC/power loss in your PC's BIOS/UEFI.
+2. Set up OS auto-login and launch COGS on startup, enabling **Auto-start Show** in COGS settings.
+3. Check **Auto-recover after power loss** on critical schedules.
 
 ## License
 MIT
