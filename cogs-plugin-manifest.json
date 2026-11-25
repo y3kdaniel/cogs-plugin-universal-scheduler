@@ -1,6 +1,6 @@
 {
   "name": "Universal Scheduler",
-  "description": "Visual schedule manager that updates COGS Show Variables directly with Auto/Force overrides and power-loss recovery.",
+  "description": "Visual schedule manager with date/time states and configurable power-loss recovery.",
   "version": "3.2.0",
   "icon": "calendar",
   "minCogsVersion": "4.10.0",
@@ -13,134 +13,64 @@
   "config": [
     {
       "name": "openScheduleEditor",
-      "value": {
-        "type": "boolean",
-        "default": true
-      }
+      "value": { "type": "boolean", "default": true }
     }
   ],
-  "showVariables": {
-    "read": true,
-    "write": true
-  },
-  "store": {
-    "items": {
-      "schedulerData": {
-        "persistValue": true
-      }
-    }
-  },
   "state": [
     {
       "name": "activeSchedules",
-      "value": {
-        "type": "string",
-        "default": ""
-      }
+      "value": { "type": "string", "default": "" }
     },
     {
       "name": "activeCount",
-      "value": {
-        "type": "number",
-        "default": 0,
-        "min": 0,
-        "integer": true
-      }
+      "value": { "type": "number", "default": 0, "min": 0, "integer": true }
+    },
+    {
+      "name": "targetVariable",
+      "value": { "type": "string", "default": "" }
+    },
+    {
+      "name": "targetValue",
+      "value": { "type": "string", "default": "" }
     },
     {
       "name": "timeHHMM",
-      "value": {
-        "type": "number",
-        "default": 0,
-        "min": 0,
-        "max": 2359,
-        "integer": true
-      }
+      "value": { "type": "number", "default": 0, "min": 0, "max": 2359, "integer": true }
     },
     {
       "name": "minutesSinceMidnight",
-      "value": {
-        "type": "number",
-        "default": 0,
-        "min": 0,
-        "max": 1439,
-        "integer": true
-      }
+      "value": { "type": "number", "default": 0, "min": 0, "max": 1439, "integer": true }
     },
     {
       "name": "dayOfWeek",
       "value": {
         "type": "option",
         "default": "Sunday",
-        "options": [
-          "Sunday",
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday"
-        ]
+        "options": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
       }
     },
     {
       "name": "isWeekend",
-      "value": {
-        "type": "boolean",
-        "default": false
-      }
+      "value": { "type": "boolean", "default": false }
     },
     {
       "name": "month",
-      "value": {
-        "type": "number",
-        "default": 1,
-        "min": 1,
-        "max": 12,
-        "integer": true
-      }
+      "value": { "type": "number", "default": 1, "min": 1, "max": 12, "integer": true }
     },
     {
       "name": "dayOfMonth",
-      "value": {
-        "type": "number",
-        "default": 1,
-        "min": 1,
-        "max": 31,
-        "integer": true
-      }
+      "value": { "type": "number", "default": 1, "min": 1, "max": 31, "integer": true }
     },
     {
       "name": "dateISO",
-      "value": {
-        "type": "string",
-        "default": ""
-      }
+      "value": { "type": "string", "default": "" }
     }
   ],
   "events": {
     "toCogs": [
-      {
-        "name": "scheduleStarted",
-        "value": {
-          "type": "string",
-          "default": ""
-        }
-      },
-      {
-        "name": "scheduleEnded",
-        "value": {
-          "type": "string",
-          "default": ""
-        }
-      },
-      {
-        "name": "clockStrikes",
-        "value": {
-          "type": "string",
-          "default": ""
-        }
-      }
+      { "name": "scheduleStarted", "value": { "type": "string", "default": "" } },
+      { "name": "scheduleEnded", "value": { "type": "string", "default": "" } },
+      { "name": "clockStrikes", "value": { "type": "string", "default": "" } }
     ]
   }
 }
