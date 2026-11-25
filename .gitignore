@@ -1,4 +1,11 @@
-node_modules/
-schedules.json
+# OS metadata
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Local editor / IDE folders
+.vscode/
+.idea/
+
+# Optional local test exports
+cogs-schedules-*.json
