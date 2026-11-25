@@ -22,7 +22,6 @@ const INLINE_MANIFEST = {
       value: { type: "boolean", default: true }
     }
   ],
-  showVariables: { read: true, write: true },
   store: {
     items: {
       schedulerData: { persistValue: true }
@@ -31,6 +30,20 @@ const INLINE_MANIFEST = {
   state: [
     { name: "activeSchedules", value: { type: "string", default: "" } },
     { name: "activeCount", value: { type: "number", default: 0, min: 0, integer: true } },
+    {
+      "name": "targetVariable",
+      "value": {
+        "type": "string",
+        "default": ""
+      }
+    },
+    {
+      "name": "targetValue",
+      "value": {
+        "type": "string",
+        "default": ""
+      }
+    },
     { name: "timeHHMM", value: { type: "number", default: 0, min: 0, max: 2359, integer: true } },
     { name: "minutesSinceMidnight", value: { type: "number", default: 0, min: 0, max: 1439, integer: true } },
     {
