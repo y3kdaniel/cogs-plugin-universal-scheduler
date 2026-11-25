@@ -19,13 +19,6 @@
       }
     }
   ],
-  "store": {
-    "items": {
-      "schedulerData": {
-        "persistValue": true
-      }
-    }
-  },
   "state": [
     {
       "name": "activeSchedules",
