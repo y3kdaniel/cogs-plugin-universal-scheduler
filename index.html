@@ -470,8 +470,12 @@
       try {
         const { CogsConnection } = window.COGS;
         const manifest = await (await fetch("./cogs-plugin-manifest.json")).json();
-        cogs = new CogsConnection(manifest, undefined, undefined, {
-          schedulerData: store
+
+        cogs = new CogsConnection({
+          manifest,
+          initialStoreItems: {
+            schedulerData: store
+          }
         });
 
         cogs.addEventListener("open", () => {
@@ -504,8 +508,10 @@
         });
       } catch (err) {
         console.error("COGS connection init error:", err);
+        document.getElementById("status").textContent = "COGS init error: " + err.message;
       }
     }
+
 
     function updateStatusBar(prefix = "") {
       const activeNames = store.schedules
