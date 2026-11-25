@@ -30,7 +30,7 @@ async function checkForUpdates() {
   const el = document.getElementById("update-status");
   el.textContent = "Checking...";
   try {
-    const res = await fetch("https://github.com" + GITHUB_REPO + "/releases/latest", {
+    const res = await fetch("https://github.com/" + GITHUB_REPO + "/releases/latest", {
       headers: { Accept: "application/vnd.github+json" }
     });
     if (!res.ok) {
