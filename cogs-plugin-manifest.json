@@ -15,49 +15,102 @@
   "state": [
     {
       "name": "activeSchedules",
-      "value": { "type": "string" }
+      "value": {
+        "type": "string"
+      }
     },
     {
       "name": "activeCount",
-      "value": { "type": "number", "min": 0, "integer": true }
+      "value": {
+        "type": "number",
+        "min": 0,
+        "integer": true
+      }
     },
     {
       "name": "timeHHMM",
-      "value": { "type": "number", "min": 0, "max": 2359, "integer": true }
+      "value": {
+        "type": "number",
+        "min": 0,
+        "max": 2359,
+        "integer": true
+      }
     },
     {
       "name": "minutesSinceMidnight",
-      "value": { "type": "number", "min": 0, "max": 1439, "integer": true }
+      "value": {
+        "type": "number",
+        "min": 0,
+        "max": 1439,
+        "integer": true
+      }
     },
     {
       "name": "dayOfWeek",
       "value": {
         "type": "option",
-        "options": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        "options": [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday"
+        ]
       }
     },
     {
       "name": "isWeekend",
-      "value": { "type": "boolean" }
+      "value": {
+        "type": "boolean"
+      }
     },
     {
       "name": "month",
-      "value": { "type": "number", "min": 1, "max": 12, "integer": true }
+      "value": {
+        "type": "number",
+        "min": 1,
+        "max": 12,
+        "integer": true
+      }
     },
     {
       "name": "dayOfMonth",
-      "value": { "type": "number", "min": 1, "max": 31, "integer": true }
+      "value": {
+        "type": "number",
+        "min": 1,
+        "max": 31,
+        "integer": true
+      }
     },
     {
       "name": "dateISO",
-      "value": { "type": "string" }
+      "value": {
+        "type": "string"
+      }
     }
   ],
   "events": {
     "fromPlugin": [
-      { "name": "scheduleStarted", "value": { "type": "string" } },
-      { "name": "scheduleEnded", "value": { "type": "string" } },
-      { "name": "clockStrikes", "value": { "type": "string" } }
+      {
+        "name": "scheduleStarted",
+        "value": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "scheduleEnded",
+        "value": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "clockStrikes",
+        "value": {
+          "type": "string"
+        }
+      }
     ]
   }
 }
