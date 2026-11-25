@@ -1,3 +1,34 @@
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(function (key) {
+      const val = attrs[key];
+      if (key === "className") {
+        node.className = val;
+      } else if (key === "text") {
+        node.textContent = val;
+      } else if (key === "checked" || key === "value" || key === "disabled") {
+        node[key] = val;
+      } else if (key.startsWith("on") && typeof val === "function") {
+        node.addEventListener(key.slice(2).toLowerCase(), val);
+      } else {
+        node.setAttribute(key, val);
+      }
+    });
+  }
+  if (Array.isArray(children)) {
+    children.forEach(function (child) {
+      if (child === null || child === undefined || child === false) return;
+      if (typeof child === "string") {
+        node.appendChild(document.createTextNode(child));
+      } else {
+        node.appendChild(child);
+      }
+    });
+  }
+  return node;
+}
+
 function updateStatusBar(prefix) {
   const activeNames = AppState.store.schedules
     .filter(function (s) { return AppState.activeIds.has(s.id); })
@@ -27,25 +58,27 @@ function saveAll(prefix) {
 }
 
 async function checkForUpdates() {
-  const el = document.getElementById("update-status");
-  el.textContent = "Checking...";
+  const statusEl = document.getElementById("update-status");
+  statusEl.textContent = "Checking...";
   try {
-    const res = await fetch("https://github.com/" + GITHUB_REPO + "/releases/latest", {
+    const res = await fetch("https://github.com" + GITHUB_REPO + "/releases/latest", {
       headers: { Accept: "application/vnd.github+json" }
     });
     if (!res.ok) {
-      el.textContent = "No releases published yet.";
+      statusEl.textContent = "No releases published yet.";
       return;
     }
     const data = await res.json();
     const latest = (data.tag_name || "").replace(/^v/i, "");
     if (!latest || latest === PLUGIN_VERSION) {
-      el.textContent = "Up to date!";
+      statusEl.textContent = "Up to date!";
     } else {
-      el.innerHTML = 'Update available: <a href="' + data.html_url + '" target="_blank">v' + latest + "</a>";
+      statusEl.textContent = "";
+      statusEl.appendChild(document.createTextNode("Update available: "));
+      statusEl.appendChild(el("a", { href: data.html_url, target: "_blank", text: "v" + latest }));
     }
   } catch (e) {
-    el.textContent = "Offline / Local mode";
+    statusEl.textContent = "Offline / Local mode";
   }
 }
 
@@ -95,83 +128,68 @@ function handleImportFile(event) {
   reader.readAsText(file);
 }
 
-window.setOverride = function (idx, mode) {
-  AppState.store.schedules[idx].override = mode;
+function setOverride(idx, mode) {
+  AppState.store.schedules.at(idx).override = mode;
   saveAll("Override updated!");
   render();
-};
+}
 
-window.duplicateSchedule = function (idx) {
-  const copy = normalizeSchedule(JSON.parse(JSON.stringify(AppState.store.schedules[idx])));
+function duplicateSchedule(idx) {
+  const copy = normalizeSchedule(JSON.parse(JSON.stringify(AppState.store.schedules.at(idx))));
   copy.id = "sched-" + Date.now();
   copy.name = (copy.name || "Schedule") + " (Copy)";
   copy.override = "auto";
   AppState.store.schedules.splice(idx + 1, 0, copy);
   markDirty();
   render();
-};
+}
 
-window.removeSchedule = function (idx) {
+function removeSchedule(idx) {
   AppState.store.schedules.splice(idx, 1);
   markDirty();
   render();
-};
+}
 
-window.addDate = function (idx) {
-  const picker = document.getElementById("date-picker-" + idx);
-  if (!picker || !picker.value) return;
-  if (!AppState.store.schedules[idx].dates.includes(picker.value)) {
-    AppState.store.schedules[idx].dates.push(picker.value);
-    AppState.store.schedules[idx].dates.sort();
+function addDate(idx, pickerEl) {
+  if (!pickerEl || !pickerEl.value) return;
+  const sched = AppState.store.schedules.at(idx);
+  if (!sched.dates.includes(pickerEl.value)) {
+    sched.dates.push(pickerEl.value);
+    sched.dates.sort();
   }
-  picker.value = "";
+  pickerEl.value = "";
   markDirty();
   render();
-};
+}
 
-window.removeDate = function (idx, dateStr) {
-  AppState.store.schedules[idx].dates = AppState.store.schedules[idx].dates.filter(function (d) {
-    return d !== dateStr;
-  });
+function removeDate(idx, dateStr) {
+  const sched = AppState.store.schedules.at(idx);
+  sched.dates = sched.dates.filter(function (d) { return d !== dateStr; });
   markDirty();
   render();
-};
+}
 
-window.clearAllDates = function (idx) {
-  AppState.store.schedules[idx].dates = [];
-  markDirty();
-  render();
-};
-
-window.toggleBulkHelper = function (id) {
-  AppState.openBulkHelper[id] = !AppState.openBulkHelper[id];
-  render();
-};
-
-window.addDateRange = function (idx) {
-  const fromVal = document.getElementById("range-from-" + idx).value;
-  const toVal = document.getElementById("range-to-" + idx).value;
-  if (!fromVal || !toVal) return;
-
+function addDateRange(idx, fromEl, toEl, dayCheckboxes) {
+  if (!fromEl.value || !toEl.value) return;
   const allowedDays = new Set();
-  DAYS.forEach(function (day) {
-    const cb = document.getElementById("range-day-" + idx + "-" + day);
-    if (cb && cb.checked) allowedDays.add(day);
+  Object.keys(dayCheckboxes).forEach(function (day) {
+    if (dayCheckboxes[day].checked) allowedDays.add(day);
   });
   if (allowedDays.size === 0) return;
 
-  const fParts = fromVal.split("-").map(Number);
-  const tParts = toVal.split("-").map(Number);
+  const fParts = fromEl.value.split("-").map(Number);
+  const tParts = toEl.value.split("-").map(Number);
   const start = new Date(Date.UTC(fParts.at(0), fParts.at(1) - 1, fParts.at(2)));
   const end = new Date(Date.UTC(tParts.at(0), tParts.at(1) - 1, tParts.at(2)));
   if (start > end) return;
 
-  const existing = new Set(AppState.store.schedules[idx].dates);
+  const sched = AppState.store.schedules.at(idx);
+  const existing = new Set(sched.dates);
   const cursor = new Date(start);
   let safety = 0;
 
   while (cursor <= end && safety < 730) {
-    const dayName = JS_DAY_NAMES[cursor.getUTCDay()];
+    const dayName = JS_DAY_NAMES.at(cursor.getUTCDay());
     if (allowedDays.has(dayName)) {
       existing.add(cursor.toISOString().slice(0, 10));
     }
@@ -179,79 +197,60 @@ window.addDateRange = function (idx) {
     safety++;
   }
 
-  AppState.store.schedules[idx].dates = Array.from(existing).sort();
+  sched.dates = Array.from(existing).sort();
   markDirty();
   render();
-};
+}
 
-window.setRangePreset = function (idx, preset) {
-  DAYS.forEach(function (day) {
-    const cb = document.getElementById("range-day-" + idx + "-" + day);
-    if (!cb) return;
-    if (preset === "all") cb.checked = true;
-    if (preset === "fri-sat") cb.checked = day === "Friday" || day === "Saturday";
-    if (preset === "fri-sun") cb.checked = day === "Friday" || day === "Saturday" || day === "Sunday";
-  });
-};
-
-window.toggleDay = function (idx, day) {
-  const arr = AppState.store.schedules[idx].daysOfWeek;
-  if (arr.includes(day)) {
-    AppState.store.schedules[idx].daysOfWeek = arr.filter(function (d) { return d !== day; });
-  } else {
-    arr.push(day);
-  }
-  markDirty();
-  render();
-};
-
-window.updateField = function (idx, field, val, rerender) {
-  AppState.store.schedules[idx][field] = val;
-  markDirty();
-  if (rerender) render();
-};
-
-window.onSelectVariable = function (idx, varName) {
-  AppState.store.schedules[idx].targetVariable = varName;
-  AppState.store.schedules[idx].activeValue = "";
-  AppState.store.schedules[idx].inactiveValue = "";
-  markDirty();
-  render();
-};
-
-function renderValueInput(idx, field, varName, currentVal) {
-  const varDef = AppState.showVariables[varName];
+function buildValueControl(idx, field, varName, currentVal) {
+  const varDef = AppState.showVariables ? AppState.showVariables[varName] : null;
   const safeVal = currentVal === undefined ? "" : String(currentVal);
 
   if (varDef && varDef.type === "option" && Array.isArray(varDef.options)) {
-    let opts = '<option value="">-- Select --</option>';
+    const opts = [el("option", { value: "", text: "-- Select --" })];
     varDef.options.forEach(function (o) {
-      const sel = safeVal === String(o) ? " selected" : "";
-      opts += '<option value="' + o + '"' + sel + ">" + o + "</option>";
+      const opt = el("option", { value: String(o), text: String(o) });
+      if (safeVal === String(o)) opt.selected = true;
+      opts.push(opt);
     });
-    return '<select onchange="updateField(' + idx + ", '" + field + "', this.value)\">" + opts + "</select>";
+    return el("select", {
+      onChange: function (e) {
+        AppState.store.schedules.at(idx)[field] = e.target.value;
+        markDirty();
+      }
+    }, opts);
   }
 
   if (varDef && varDef.type === "boolean") {
-    return (
-      '<select onchange="updateField(' + idx + ", '" + field + "', this.value)\">" +
-      '<option value="">-- Select --</option>' +
-      '<option value="true"' + (safeVal === "true" ? " selected" : "") + ">True</option>" +
-      '<option value="false"' + (safeVal === "false" ? " selected" : "") + ">False</option>" +
-      "</select>"
-    );
+    const optEmpty = el("option", { value: "", text: "-- Select --" });
+    const optTrue = el("option", { value: "true", text: "True" });
+    const optFalse = el("option", { value: "false", text: "False" });
+    if (safeVal === "true") optTrue.selected = true;
+    if (safeVal === "false") optFalse.selected = true;
+    return el("select", {
+      onChange: function (e) {
+        AppState.store.schedules.at(idx)[field] = e.target.value;
+        markDirty();
+      }
+    }, [optEmpty, optTrue, optFalse]);
   }
 
-  return (
-    '<input type="text" style="width:120px;" value="' + safeVal + '" placeholder="Value" ' +
-    'oninput="updateField(' + idx + ", '" + field + "', this.value)\" />"
-  );
+  return el("input", {
+    type: "text",
+    style: "width:120px;",
+    value: safeVal,
+    placeholder: "Value",
+    onInput: function (e) {
+      AppState.store.schedules.at(idx)[field] = e.target.value;
+      markDirty();
+    }
+  });
 }
 
 function render() {
   const container = document.getElementById("list");
   container.innerHTML = "";
-  const varNames = Object.keys(AppState.showVariables).sort();
+  const varNames = AppState.showVariables ? Object.keys(AppState.showVariables).sort() : [];
 
   AppState.store.schedules.forEach(function (s, idx) {
     const isActive = AppState.activeIds.has(s.id);
@@ -260,121 +259,243 @@ function render() {
     const hasEnd = s.hasEndTime !== false;
     const bulkOpen = !!AppState.openBulkHelper[s.id];
 
-    const card = document.createElement("div");
-    card.className = "card" + (isForced ? " forced" : isActive ? " active-now" : "");
+    // Row 1: Header & Overrides
+    const leftGroup = el("div", { className: "row", style: "margin:0;" }, [
+      el("input", {
+        type: "checkbox",
+        checked: !!s.enabled,
+        onChange: function (e) { s.enabled = e.target.checked; markDirty(); }
+      }),
+      el("input", {
+        type: "text",
+        value: s.name,
+        placeholder: "Schedule Name",
+        onInput: function (e) { s.name = e.target.value; markDirty(); }
+      }),
+      isActive ? el("span", { className: "badge", text: "Active Now" }) : null,
+      isForced ? el("span", { className: "badge warn", text: ov === "force_on" ? "Forced ON" : "Forced OFF" }) : null
+    ]);
 
-    let dateControls = "";
-    if (s.mode === "dates") {
-      const chips = s.dates
-        .map(function (d) {
-          return '<div class="chip">' + d + ' <span onclick="removeDate(' + idx + ", '" + d + "')\">×</span></div>";
-        })
-        .join("");
+    const overrideGroup = el("div", { className: "override-group", title: "Manual Override" }, [
+      el("button", {
+        className: "override-btn" + (ov === "auto" ? " sel-auto" : ""),
+        text: "Auto",
+        onClick: function () { setOverride(idx, "auto"); }
+      }),
+      el("button", {
+        className: "override-btn" + (ov === "force_on" ? " sel-on" : ""),
+        text: "Force ON",
+        onClick: function () { setOverride(idx, "force_on"); }
+      }),
+      el("button", {
+        className: "override-btn" + (ov === "force_off" ? " sel-off" : ""),
+        text: "Force OFF",
+        onClick: function () { setOverride(idx, "force_off"); }
+      })
+    ]);
 
-      const dayFilterPills = DAYS.map(function (day) {
-        return '<label class="day-pill"><input type="checkbox" id="range-day-' + idx + "-" + day + '" checked /> ' + day.slice(0, 3) + "</label>";
-      }).join("");
-
-      const bulkPanel = bulkOpen
-        ? '<div class="sub-panel" style="margin-bottom:8px;">' +
-            '<div class="row" style="margin-bottom:8px;">' +
-              '<label class="lbl">From</label>' +
-              '<input type="date" id="range-from-' + idx + '" />' +
-              '<label class="lbl">to</label>' +
-              '<input type="date" id="range-to-' + idx + '" />' +
-              '<button class="secondary" onclick="addDateRange(' + idx + ')">Add Matching Dates</button>' +
-            "</div>" +
-            '<div class="row" style="margin-bottom:0;">' +
-              '<label class="lbl">Include:</label>' +
-            dayFilterPills +
-'<button class="ghost" onclick="setRangePreset(' + idx + ", 'all')">All" +
-'<button class="ghost" onclick="setRangePreset(' + idx + ", 'fri-sat')">Fri–Sat" +
-'<button class="ghost" onclick="setRangePreset(' + idx + ", 'fri-sun')">Fri–Sun" +
-"" +
-""
-: "";
-dateControls =
-'' +
-'' +
-'+ Add Date' +
-'<button class="ghost" onclick="toggleBulkHelper('' + s.id + "')">" +
-(bulkOpen ? "Hide Date Range Helper" : "Bulk Add Date Range...") +
-"" +
-(s.dates.length > 0
-? 'Clear All (' + s.dates.length + ")"
-: "") +
-"" +
-bulkPanel +
-'' + (chips || "No dates selected yet") + "";
+    const rightGroup = el("div", { className: "row", style: "margin:0;" }, [
+      overrideGroup,
+el("button", { className: "ghost", text: "Duplicate", onClick: function () { duplicateSchedule(idx); } }),
+el("button", { className: "danger", text: "Delete", onClick: function () { removeSchedule(idx); } })
+]);
+const headerRow = el("div", { className: "row", style: "justify-content:space-between;" }, [leftGroup, rightGroup]);
+// Row 2: Mode, Times, & Power-Loss Recovery
+const modeSelect = el("select", {
+onChange: function (e) { s.mode = e.target.value; markDirty(); render(); }
+}, [
+el("option", { value: "dates", text: "Specific Calendar Dates" }),
+el("option", { value: "days", text: "Days of the Week" }),
+el("option", { value: "daily", text: "Every Day" })
+]);
+modeSelect.value = s.mode;
+const timingRow = el("div", { className: "row" }, [
+el("label", { className: "lbl", text: "Runs:" }),
+modeSelect,
+el("label", { className: "lbl", text: hasEnd ? "From" : "At" }),
+el("input", {
+type: "time",
+value: s.startTime,
+onChange: function (e) { s.startTime = e.target.value; markDirty(); }
+}),
+el("label", { className: "lbl", style: "cursor:pointer;" }, [
+el("input", {
+type: "checkbox",
+checked: hasEnd,
+onChange: function (e) { s.hasEndTime = e.target.checked; markDirty(); render(); }
+}),
+" End Time:"
+]),
+hasEnd ? el("input", {
+type: "time",
+value: s.endTime,
+onChange: function (e) { s.endTime = e.target.value; markDirty(); }
+}) : null,
+el("label", {
+className: "lbl",
+style: "margin-left:8px; cursor:pointer;",
+title: "If checked, re-triggers this schedule immediately if the PC reboots mid-window"
+}, [
+el("input", {
+type: "checkbox",
+checked: s.autoRecover !== false,
+onChange: function (e) { s.autoRecover = e.target.checked; markDirty(); }
+}),
+" Auto-recover after power loss"
+])
+]);
+// Row 3: Date or Day-of-Week Controls
+const dateSection = el("div", {});
+if (s.mode === "dates") {
+const singlePicker = el("input", { type: "date" });
+const actionRow = el("div", { className: "row", style: "margin-bottom:6px;" }, [
+singlePicker,
+el("button", {
+className: "secondary",
+text: "+ Add Date",
+onClick: function () { addDate(idx, singlePicker); }
+}),
+el("button", {
+className: "ghost",
+text: bulkOpen ? "Hide Date Range Helper" : "Bulk Add Date Range...",
+onClick: function () { AppState.openBulkHelper[s.id] = !bulkOpen; render(); }
+}),
+s.dates.length > 0 ? el("button", {
+className: "ghost",
+text: "Clear All (" + s.dates.length + ")",
+onClick: function () { s.dates = []; markDirty(); render(); }
+}) : null
+]);
+dateSection.appendChild(actionRow);
+if (bulkOpen) {
+const fromInput = el("input", { type: "date" });
+const toInput = el("input", { type: "date" });
+const dayCheckboxes = {};
+const dayPills = DAYS.map(function (day) {
+const cb = el("input", { type: "checkbox", checked: true });
+dayCheckboxes[day] = cb;
+return el("label", { className: "day-pill" }, [cb, " " + day.slice(0, 3)]);
+});
+const bulkPanel = el("div", { className: "sub-panel", style: "margin-bottom:8px;" }, [
+el("div", { className: "row", style: "margin-bottom:8px;" }, [
+el("label", { className: "lbl", text: "From" }),
+fromInput,
+el("label", { className: "lbl", text: "to" }),
+toInput,
+el("button", {
+className: "secondary",
+text: "Add Matching Dates",
+onClick: function () { addDateRange(idx, fromInput, toInput, dayCheckboxes); }
+})
+]),
+el("div", { className: "row", style: "margin-bottom:0;" }, [
+el("label", { className: "lbl", text: "Include:" })
+].concat(dayPills).concat([
+el("button", {
+className: "ghost",
+text: "All",
+onClick: function () { DAYS.forEach(function (d) { dayCheckboxes[d].checked = true; }); }
+}),
+el("button", {
+className: "ghost",
+text: "Fri–Sat",
+onClick: function () { DAYS.forEach(function (d) { dayCheckboxes[d].checked = d === "Friday" || d === "Saturday"; }); }
+}),
+el("button", {
+className: "ghost",
+text: "Fri–Sun",
+onClick: function () { DAYS.forEach(function (d) { dayCheckboxes[d].checked = d === "Friday" || d === "Saturday" || d === "Sunday"; }); }
+})
+]))
+]);
+dateSection.appendChild(bulkPanel);
+}
+const chipsDiv = el("div", { className: "chips" });
+if (s.dates.length === 0) {
+chipsDiv.appendChild(el("span", { style: "color:#6b7280;font-size:12px;", text: "No dates selected yet" }));
+} else {
+s.dates.forEach(function (d) {
+chipsDiv.appendChild(el("div", { className: "chip" }, [
+d + " ",
+el("span", { text: "×", onClick: function () { removeDate(idx, d); } })
+]));
+});
+}
+dateSection.appendChild(chipsDiv);
 } else if (s.mode === "days") {
 const pills = DAYS.map(function (day) {
-const checked = s.daysOfWeek.includes(day) ? " checked" : "";
-return '<input type="checkbox"' + checked + ' onchange="toggleDay(' + idx + ", '" + day + "')" /> " + day.slice(0, 3) + "";
-}).join("");
-dateControls = '' + pills + "";
+return el("label", { className: "day-pill" }, [
+el("input", {
+type: "checkbox",
+checked: s.daysOfWeek.includes(day),
+onChange: function () {
+if (s.daysOfWeek.includes(day)) {
+s.daysOfWeek = s.daysOfWeek.filter(function (d) { return d !== day; });
+} else {
+s.daysOfWeek.push(day);
 }
-let varOptions = '(None — use events/states only)';
-varNames.forEach(function (v) {
-const sel = s.targetVariable === v ? " selected" : "";
-varOptions += '<option value="' + v + '"' + sel + ">" + v + "";
+markDirty();
+render();
+}
+}),
+" " + day.slice(0, 3)
+]);
 });
-const endVarControls = hasEnd && s.targetVariable
-? '' +
-'<input type="checkbox"' + (s.restoreOnEnd !== false ? " checked" : "") + ' onchange="updateField(' + idx + ", 'restoreOnEnd', this.checked, true)" />" +
-" When Ended →" +
-"" +
-(s.restoreOnEnd !== false ? renderValueInput(idx, "inactiveValue", s.targetVariable, s.inactiveValue) : "")
-: "";
-const varInputs = s.targetVariable
-? 'When Active →' +
-renderValueInput(idx, "activeValue", s.targetVariable, s.activeValue) +
-endVarControls
-: "";
-card.innerHTML =
-'' +
-'' +
-'<input type="checkbox"' + (s.enabled ? " checked" : "") + ' onchange="updateField(' + idx + ", 'enabled', this.checked)" />" +
-'<input type="text" value="' + s.name + '" placeholder="Schedule Name" oninput="updateField(' + idx + ", 'name', this.value)" />" +
-(isActive ? 'Active Now' : "") +
-(isForced ? '' + (ov === "force_on" ? "Forced ON" : "Forced OFF") + "" : "") +
-"" +
-'' +
-'' +
-'<button class="override-btn ' + (ov === "auto" ? "sel-auto" : "") + '" onclick="setOverride(' + idx + ", 'auto')">Auto" +
-'<button class="override-btn ' + (ov === "force_on" ? "sel-on" : "") + '" onclick="setOverride(' + idx + ", 'force_on')">Force ON" +
-'<button class="override-btn ' + (ov === "force_off" ? "sel-off" : "") + '" onclick="setOverride(' + idx + ", 'force_off')">Force OFF" +
-"" +
-'Duplicate' +
-'Delete' +
-"" +
-"" +
-'' +
-'Runs:' +
-'<select onchange="updateField(' + idx + ", 'mode', this.value, true)">" +
-'<option value="dates"' + (s.mode === "dates" ? " selected" : "") + ">Specific Calendar Dates" +
-'<option value="days"' + (s.mode === "days" ? " selected" : "") + ">Days of the Week" +
-'<option value="daily"' + (s.mode === "daily" ? " selected" : "") + ">Every Day" +
-"" +
-'' + (hasEnd ? "From" : "At") + "" +
-'<input type="time" value="' + s.startTime + '" onchange="updateField(' + idx + ", 'startTime', this.value)" />" +
-'' +
-'<input type="checkbox"' + (hasEnd ? " checked" : "") + ' onchange="updateField(' + idx + ", 'hasEndTime', this.checked, true)" />" +
-" End Time:" +
-"" +
-(hasEnd ? '<input type="time" value="' + s.endTime + '" onchange="updateField(' + idx + ", 'endTime', this.value)" />" : "") +
-'' +
-'<input type="checkbox"' + (s.autoRecover !== false ? " checked" : "") + ' onchange="updateField(' + idx + ", 'autoRecover', this.checked)" />" +
-" Auto-recover after power loss" +
-"" +
-"" +
-dateControls +
-'' +
-'' +
-'Set Show Variable:' +
-'' + varOptions + "" +
-varInputs +
-"" +
-"";
+dateSection.appendChild(el("div", { className: "row" }, pills));
+}
+// Row 4: Target Show Variable Controls
+const varRowChildren = [el("label", { className: "lbl", text: "Target Show Variable:" })];
+if (varNames.length > 0) {
+const varSelect = el("select", {
+onChange: function (e) {
+s.targetVariable = e.target.value;
+s.activeValue = "";
+s.inactiveValue = "";
+markDirty();
+render();
+}
+}, [el("option", { value: "", text: "(None — use events/states only)" })].concat(
+varNames.map(function (v) { return el("option", { value: v, text: v }); })
+));
+varSelect.value = s.targetVariable;
+varRowChildren.push(varSelect);
+} else {
+varRowChildren.push(el("input", {
+type: "text",
+style: "width:140px;",
+value: s.targetVariable || "",
+placeholder: "e.g. ShowMode",
+onInput: function (e) {
+const wasEmpty = !s.targetVariable;
+s.targetVariable = e.target.value;
+markDirty();
+if (wasEmpty && s.targetVariable) render();
+}
+}));
+}
+if (s.targetVariable) {
+varRowChildren.push(el("label", { className: "lbl", text: "When Active →" }));
+varRowChildren.push(buildValueControl(idx, "activeValue", s.targetVariable, s.activeValue));
+if (hasEnd) {
+varRowChildren.push(el("label", { className: "lbl", style: "margin-left:6px;" }, [
+el("input", {
+type: "checkbox",
+checked: s.restoreOnEnd !== false,
+onChange: function (e) { s.restoreOnEnd = e.target.checked; markDirty(); render(); }
+}),
+" When Ended →"
+]));
+if (s.restoreOnEnd !== false) {
+varRowChildren.push(buildValueControl(idx, "inactiveValue", s.targetVariable, s.inactiveValue));
+}
+}
+}
+const varBox = el("div", { className: "sub-panel" }, [
+el("div", { className: "row", style: "margin:0;" }, varRowChildren)
+]);
+const card = el("div", {
+className: "card" + (isForced ? " forced" : isActive ? " active-now" : "")
+}, [headerRow, timingRow, dateSection, varBox]);
 container.appendChild(card);
 });
 }
