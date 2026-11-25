@@ -191,8 +191,8 @@
     const PLUGIN_VERSION = "3.2.0";
     const GITHUB_REPO = "y3kdaniel/cogs-plugin-universal-scheduler";
 
-    const API_STATE = "http://127.0.0";
-    const API_SAVE = "http://127.0.0";
+    const API_STATE = "http://127.0.0.1:18945/api/state";
+    const API_SAVE = "http://127.0.0.1:18945/api/save";
     const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -207,7 +207,7 @@
       const el = document.getElementById("update-status");
       el.textContent = "Checking...";
       try {
-        const res = await fetch(`https://github.com/{GITHUB_REPO}/releases/latest`, {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
           headers: { Accept: "application/vnd.github+json" }
         });
         if (!res.ok) {
@@ -308,31 +308,36 @@
             alert("Invalid schedule JSON file: could not find a schedules list.");
             return;
           }
+
           if (parsed.settings && typeof parsed.settings === "object") {
             settings = { ...settings, ...parsed.settings };
           }
           schedules = importedSchedules;
           await saveAll();
           document.getElementById("status").textContent =
-          Imported ${schedules.length} schedule(s) and saved!;
+            `Imported ${schedules.length} schedule(s) and saved!`;
         } catch (err) {
           alert("Failed to parse JSON file: " + err.message);
         }
       };
       reader.readAsText(file);
     }
+
     function toggleStartupReset(checked) {
       settings.resetOverridesOnStartup = checked;
       saveAll();
     }
+
     function setOverride(idx, mode) {
       schedules[idx].override = mode;
       saveAll();
     }
+
     function resetAllOverrides() {
       schedules.forEach(s => { s.override = "auto"; });
       saveAll();
     }
+
     function addSchedule() {
       schedules.push({
         id: "sched-" + Date.now(),
@@ -354,6 +359,7 @@
       markDirty();
       render();
     }
+
     function duplicateSchedule(idx) {
       const copy = JSON.parse(JSON.stringify(schedules[idx]));
       copy.id = "sched-" + Date.now();
@@ -363,14 +369,16 @@
       markDirty();
       render();
     }
+
     function removeSchedule(idx) {
       schedules.splice(idx, 1);
       markDirty();
       render();
     }
+
     function addDate(idx) {
-      const picker = document.getElementById(date-picker-${idx});
-      if (!picker.value) return;
+      const picker = document.getElementById(`date-picker-${idx}`);
+      if (!picker || !picker.value) return;
       if (!schedules[idx].dates.includes(picker.value)) {
         schedules[idx].dates.push(picker.value);
         schedules[idx].dates.sort();
@@ -379,24 +387,30 @@
       markDirty();
       render();
     }
+
     function addDateRange(idx) {
-      const fromVal = document.getElementById(range-from-${idx}).value;
-      const toVal = document.getElementById(range-to-${idx}).value;
+      const fromVal = document.getElementById(`range-from-${idx}`).value;
+      const toVal = document.getElementById(`range-to-${idx}`).value;
       if (!fromVal || !toVal) return;
+
       const allowedDays = new Set();
       DAYS.forEach(day => {
-        const cb = document.getElementById(range-day-${idx}-${day});
+        const cb = document.getElementById(`range-day-${idx}-${day}`);
         if (cb && cb.checked) allowedDays.add(day);
       });
       if (allowedDays.size === 0) return;
+
       const [fy, fm, fd] = fromVal.split("-").map(Number);
       const [ty, tm, td] = toVal.split("-").map(Number);
       const start = new Date(Date.UTC(fy, fm - 1, fd));
       const end = new Date(Date.UTC(ty, tm - 1, td));
+
       if (start > end) return;
+
       const existing = new Set(schedules[idx].dates);
       const cursor = new Date(start);
       let safety = 0;
+
       while (cursor <= end && safety < 730) {
         const dayName = JS_DAY_NAMES[cursor.getUTCDay()];
         if (allowedDays.has(dayName)) {
@@ -406,13 +420,15 @@
         cursor.setUTCDate(cursor.getUTCDate() + 1);
         safety++;
       }
+
       schedules[idx].dates = Array.from(existing).sort();
       markDirty();
       render();
     }
+
     function setRangePreset(idx, preset) {
       DAYS.forEach(day => {
-        const cb = document.getElementById(range-day-${idx}-${day});
+        const cb = document.getElementById(`range-day-${idx}-${day}`);
         if (!cb) return;
         if (preset === "all") cb.checked = true;
         if (preset === "fri-sat") cb.checked = (day === "Friday" || day === "Saturday");
@@ -420,16 +436,19 @@
         if (preset === "weekends") cb.checked = (day === "Saturday" || day === "Sunday");
       });
     }
+
     function clearAllDates(idx) {
       schedules[idx].dates = [];
       markDirty();
       render();
     }
+
     function removeDate(idx, dateStr) {
       schedules[idx].dates = schedules[idx].dates.filter(d => d !== dateStr);
       markDirty();
       render();
     }
+
     function toggleDay(idx, day) {
       const arr = schedules[idx].daysOfWeek;
       if (arr.includes(day)) {
@@ -440,103 +459,173 @@
       markDirty();
       render();
     }
+
     function renderValueInput(idx, field, varName, currentVal) {
       const varDef = showVariables[varName];
       const safeVal = currentVal === undefined ? "" : String(currentVal);
+
       if (varDef && varDef.type === "option" && Array.isArray(varDef.options)) {
-        const opts = ['-- Select --']
-        .concat(varDef.options.map(o => <option value="${o}" ${safeVal === String(o) ? "selected" : ""}>${o}</option>))
-        .join("");
-        return <select onchange="schedules[${idx}].${field} = this.value; markDirty();">${opts}</select>;
+        const opts = ['<option value="">-- Select --</option>']
+          .concat(varDef.options.map(o => `<option value="${o}" ${safeVal === String(o) ? "selected" : ""}>${o}</option>`))
+          .join("");
+        return `<select onchange="schedules[${idx}].${field} = this.value; markDirty();">${opts}</select>`;
       }
+
       if (varDef && varDef.type === "boolean") {
-        return <select onchange="schedules[${idx}].${field} = this.value; markDirty();"> <option value="">-- Select --</option> <option value="true" ${safeVal === "true" ? "selected" : ""}>True</option> <option value="false" ${safeVal === "false" ? "selected" : ""}>False</option> </select>;
+        return `
+          <select onchange="schedules[${idx}].${field} = this.value; markDirty();">
+            <option value="">-- Select --</option>
+            <option value="true" ${safeVal === "true" ? "selected" : ""}>True</option>
+            <option value="false" ${safeVal === "false" ? "selected" : ""}>False</option>
+          </select>
+        `;
       }
-      return <input type="text" style="width:120px;" value="${safeVal}" placeholder="Value" oninput="schedules[${idx}].${field} = this.value; markDirty();" />;
+
+      return `<input type="text" style="width:120px;" value="${safeVal}" placeholder="Value" oninput="schedules[${idx}].${field} = this.value; markDirty();" />`;
     }
+
     function render() {
       const container = document.getElementById("list");
       container.innerHTML = "";
       const varNames = Object.keys(showVariables).sort();
+
       schedules.forEach((s, idx) => {
         const isActive = activeIds.includes(s.id);
         const ov = s.override || "auto";
         const isForced = ov !== "auto";
         const hasEnd = s.hasEndTime !== false;
         const bulkOpen = !!openBulkHelper[s.id];
+
         const card = document.createElement("div");
         card.className = "card" + (isForced ? " forced" : isActive ? " active-now" : "");
+
         let dateControls = "";
         if (s.mode === "dates") {
           const chips = s.dates.map(d =>
-            <div class="chip">${d} <span onclick="removeDate(${idx}, '${d}')">×</span></div>
+            `<div class="chip">${d} <span onclick="removeDate(${idx}, '${d}')">×</span></div>`
           ).join("");
+
           const dayFilterPills = DAYS.map(day =>
-            <label class="day-pill"><input type="checkbox" id="range-day-${idx}-${day}" checked /> ${day.slice(0,3)}</label>
+            `<label class="day-pill"><input type="checkbox" id="range-day-${idx}-${day}" checked /> ${day.slice(0,3)}</label>`
           ).join("");
+
           const bulkPanel = bulkOpen ? `
-            
-            From
-            to
-            Add Matching Dates
-            
-            Include:
-            ${dayFilterPills}
-            All
-            Fri–Sat
-            Fri–Sun
-            
-            
+            <div class="sub-panel" style="margin-bottom:8px;">
+              <div class="row" style="margin-bottom:8px;">
+                <label class="lbl">From</label>
+                <input type="date" id="range-from-${idx}" />
+                <label class="lbl">to</label>
+                <input type="date" id="range-to-${idx}" />
+                <button class="secondary" onclick="addDateRange(${idx})">Add Matching Dates</button>
+              </div>
+              <div class="row" style="margin-bottom:0;">
+                <label class="lbl">Include:</label>
+                ${dayFilterPills}
+                <button class="ghost" onclick="setRangePreset(${idx}, 'all')">All</button>
+                <button class="ghost" onclick="setRangePreset(${idx}, 'fri-sat')">Fri–Sat</button>
+                <button class="ghost" onclick="setRangePreset(${idx}, 'fri-sun')">Fri–Sun</button>
+              </div>
+            </div>
           ` : "";
-          dateControls = <div class="row" style="margin-bottom:6px;"> <input type="date" id="date-picker-${idx}" /> <button class="secondary" onclick="addDate(${idx})">+ Add Date</button> <button class="ghost" onclick="openBulkHelper['${s.id}'] = !openBulkHelper['${s.id}']; render();"> ${bulkOpen ? "Hide Date Range Helper" : "Bulk Add Date Range..."} </button> ${s.dates.length > 0 ?Clear All (${s.dates.length}): ""} </div> ${bulkPanel} <div class="chips">${chips || "<span style='color:#6b7280;font-size:12px;'>No dates selected yet</span>"}</div>;
+
+          dateControls = `
+            <div class="row" style="margin-bottom:6px;">
+              <input type="date" id="date-picker-${idx}" />
+              <button class="secondary" onclick="addDate(${idx})">+ Add Date</button>
+              <button class="ghost" onclick="openBulkHelper['${s.id}'] = !openBulkHelper['${s.id}']; render();">
+                ${bulkOpen ? "Hide Date Range Helper" : "Bulk Add Date Range..."}
+              </button>
+              ${s.dates.length > 0 ? `<button class="ghost" onclick="clearAllDates(${idx})">Clear All (${s.dates.length})</button>` : ""}
+            </div>
+            ${bulkPanel}
+            <div class="chips">${chips || "<span style='color:#6b7280;font-size:12px;'>No dates selected yet</span>"}</div>
+          `;
         } else if (s.mode === "days") {
           const pills = DAYS.map(day => {
             const checked = s.daysOfWeek.includes(day) ? "checked" : "";
-            return <label class="day-pill"><input type="checkbox" ${checked} onchange="toggleDay(${idx}, '${day}')"/> ${day.slice(0,3)}</label>;
+            return `<label class="day-pill"><input type="checkbox" ${checked} onchange="toggleDay(${idx}, '${day}')"/> ${day.slice(0,3)}</label>`;
           }).join("");
-          dateControls = <div class="row">${pills}</div>;
+          dateControls = `<div class="row">${pills}</div>`;
         }
-        const varOptions = ['(None — use events/states only)']
-          .concat(varNames.map(v => <option value="${v}" ${s.targetVariable === v ? "selected" : ""}>${v}</option>))
+
+        const varOptions = ['<option value="">(None — use events/states only)</option>']
+          .concat(varNames.map(v => `<option value="${v}" ${s.targetVariable === v ? "selected" : ""}>${v}</option>`))
           .join("");
+
         const endVarControls = (hasEnd && s.targetVariable) ? `
-          When Ended →
+          <label class="lbl" style="margin-left:6px;">
+            <input type="checkbox" ${s.restoreOnEnd !== false ? "checked" : ""} onchange="schedules[${idx}].restoreOnEnd = this.checked; markDirty(); render();" />
+            When Ended →
+          </label>
           ${s.restoreOnEnd !== false ? renderValueInput(idx, "inactiveValue", s.targetVariable, s.inactiveValue) : ""}
-          ` : "";
+        ` : "";
+
         const varInputs = s.targetVariable ? `
-          When Active →
+          <label class="lbl">When Active →</label>
           ${renderValueInput(idx, "activeValue", s.targetVariable, s.activeValue)}
           ${endVarControls}
-          ` : "";
-          card.innerHTML = <div class="row" style="justify-content:space-between;"> <div class="row" style="margin:0;"> <input type="checkbox" ${s.enabled ? "checked" : ""} onchange="schedules[${idx}].enabled = this.checked; markDirty();" /> <input type="text" value="${s.name}" placeholder="Schedule Name" oninput="schedules[${idx}].name = this.value; markDirty();" /> ${isActive ? '<span class="badge">Active Now</span>' : ""} ${isForced ?${ov === "force_on" ? "Forced ON" : "Forced OFF"}` : ""}
+        ` : "";
 
-            
-            
-            <button class="override-btn ${ov === "auto" ? "sel-auto" : ""}" onclick="setOverride(${idx}, 'auto')">Auto
-            <button class="override-btn ${ov === "force_on" ? "sel-on" : ""}" onclick="setOverride(${idx}, 'force_on')">Force ON
-            <button class="override-btn ${ov === "force_off" ? "sel-off" : ""}" onclick="setOverride(${idx}, 'force_off')">Force OFF
-            
-            Duplicate
-            Delete
-            
-            Runs:
-            <option value="dates" ${s.mode === "dates" ? "selected" : ""}>Specific Calendar Dates
-            <option value="days" ${s.mode === "days" ? "selected" : ""}>Days of the Week
-            <option value="daily" ${s.mode === "daily" ? "selected" : ""}>Every Day
-            ${hasEnd ? "From" : "At"}
-            End Time:
-            ${hasEnd ? <input type="time" value="${s.endTime}" onchange="schedules[${idx}].endTime = this.value; markDirty();" /> : ""}
-            Auto-recover after power loss
-            ${dateControls}
-            Set Show Variable:
-            ${varOptions}
-            
-            ${varInputs}
-            
-            
-            `;
-          container.appendChild(card);
-        });
-      }
-load();
-setInterval(() => load(false), 5000);
+        card.innerHTML = `
+          <div class="row" style="justify-content:space-between;">
+            <div class="row" style="margin:0;">
+              <input type="checkbox" ${s.enabled ? "checked" : ""} onchange="schedules[${idx}].enabled = this.checked; markDirty();" />
+              <input type="text" value="${s.name}" placeholder="Schedule Name" oninput="schedules[${idx}].name = this.value; markDirty();" />
+              ${isActive ? '<span class="badge">Active Now</span>' : ""}
+              ${isForced ? `<span class="badge warn">${ov === "force_on" ? "Forced ON" : "Forced OFF"}</span>` : ""}
+            </div>
+            <div class="row" style="margin:0;">
+              <div class="override-group" title="Manual Override">
+                <button class="override-btn ${ov === "auto" ? "sel-auto" : ""}" onclick="setOverride(${idx}, 'auto')">Auto</button>
+                <button class="override-btn ${ov === "force_on" ? "sel-on" : ""}" onclick="setOverride(${idx}, 'force_on')">Force ON</button>
+                <button class="override-btn ${ov === "force_off" ? "sel-off" : ""}" onclick="setOverride(${idx}, 'force_off')">Force OFF</button>
+              </div>
+              <button class="ghost" onclick="duplicateSchedule(${idx})" title="Clone this schedule">Duplicate</button>
+              <button class="danger" onclick="removeSchedule(${idx})">Delete</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <label class="lbl">Runs:</label>
+            <select onchange="schedules[${idx}].mode = this.value; markDirty(); render();">
+              <option value="dates" ${s.mode === "dates" ? "selected" : ""}>Specific Calendar Dates</option>
+              <option value="days" ${s.mode === "days" ? "selected" : ""}>Days of the Week</option>
+              <option value="daily" ${s.mode === "daily" ? "selected" : ""}>Every Day</option>
+            </select>
+
+            <label class="lbl">${hasEnd ? "From" : "At"}</label>
+            <input type="time" value="${s.startTime}" onchange="schedules[${idx}].startTime = this.value; markDirty();" />
+
+            <label class="lbl" style="cursor:pointer;">
+              <input type="checkbox" ${hasEnd ? "checked" : ""} onchange="schedules[${idx}].hasEndTime = this.checked; markDirty(); render();" />
+              End Time:
+            </label>
+            ${hasEnd ? `<input type="time" value="${s.endTime}" onchange="schedules[${idx}].endTime = this.value; markDirty();" />` : ""}
+
+            <label class="lbl" style="margin-left:8px; cursor:pointer;" title="If checked, re-triggers this schedule immediately if the PC reboots mid-window">
+              <input type="checkbox" ${s.autoRecover !== false ? "checked" : ""} onchange="schedules[${idx}].autoRecover = this.checked; markDirty();" />
+              Auto-recover after power loss
+            </label>
+          </div>
+
+          ${dateControls}
+
+          <div class="sub-panel">
+            <div class="row" style="margin:0;">
+              <label class="lbl">Set Show Variable:</label>
+              <select onchange="schedules[${idx}].targetVariable = this.value; schedules[${idx}].activeValue = ''; schedules[${idx}].inactiveValue = ''; markDirty(); render();">
+                ${varOptions}
+              </select>
+              ${varInputs}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    load();
+    setInterval(() => load(false), 5000);
+  </script>
+</body>
+</html>
